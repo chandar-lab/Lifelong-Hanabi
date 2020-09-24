@@ -1,12 +1,16 @@
-# Copyright (c) Facebook, Inc. and its affiliates.
-# All rights reserved.
-#
-# This source code is licensed under the license found in the
-# LICENSE file in the root directory of this source tree.
-#
 #!/bin/bash
+#SBATCH --account=rrg-bengioy-ad
+#SBATCH --cpus-per-task=8
+#SBATCH --gres=gpu:3
+#SBATCH --mem=180G
+#SBATCH --time=72:00:00
+#SBATCH -o /scratch/akb/iql_seed-%j.out
+
+export PYTHONPATH=/home/akb/hanabi_SAD:$PYTHONPATH
+export OMP_NUM_THREADS=1
+
 python selfplay.py \
-       --save_dir exps/iql_2p_3_scratch_210 \
+       --save_dir exps/iql_2p_202 \
        --num_thread 80 \
        --num_game_per_thread 80 \
        --method iql \
@@ -17,7 +21,7 @@ python selfplay.py \
        --eps 1.5e-05 \
        --grad_clip 5 \
        --gamma 0.999 \
-       --seed 210 \
+       --seed 202 \
        --batchsize 128 \
        --burn_in_frames 10000 \
        --replay_buffer_size 65536 \
