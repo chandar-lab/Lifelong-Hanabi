@@ -11,4 +11,5 @@ plot.png
 sweep*.py
 *.ipynb*
 models/*
+logs/*
 !models/download.sh
