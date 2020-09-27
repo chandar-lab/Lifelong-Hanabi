@@ -10,7 +10,8 @@ import sys
 import argparse
 import pprint
 import pdb
-import wandb
+# import wandb
+import gc
 import numpy as np
 import torch
 from torch import nn
@@ -93,8 +94,8 @@ if __name__ == "__main__":
     lr_str = args.load_learnable_model.split("/")[2].split(".")[0]
     exp_name = lr_str+"_fixed_"+str(len(args.load_fixed_models))+"_ind_replay_fix"
 
-    wandb.init(project="ContPlay_Hanabi_complete", name=exp_name)
-    wandb.config.update(args)
+    # wandb.init(project="ContPlay_Hanabi_complete", name=exp_name)
+    # wandb.config.update(args)
     
     if not os.path.exists(args.save_dir):
         os.makedirs(args.save_dir)
@@ -155,8 +156,10 @@ if __name__ == "__main__":
     learnable_agent = learnable_agent.to(args.train_device)
     optim = torch.optim.Adam(learnable_agent.online_net.parameters(), lr=args.lr, eps=args.eps)
     print(learnable_agent)
+
     eval_agent = learnable_agent.clone(args.train_device, {"vdn": False})
-    eval_agent1 = learnable_agent.clone(args.train_device, {"vdn": False})
+
+    fixed_learnable_agent = learnable_agent.clone(args.train_device, {"vdn": False})
 
     fixed_agents = []
     act_groups = []
@@ -187,17 +190,25 @@ if __name__ == "__main__":
     act_epoch_cnt = 0
     eval_seed = (9917 + 0 * 999999) % 7777777
     
-    for fixed_ag_idx, fixed_agent in enumerate(fixed_agents + [eval_agent1]):
-        print("evaluating learnable agent with fixed agent %d "%fixed_ag_idx)
+    for fixed_ag_idx, fixed_agent in enumerate(fixed_agents + [fixed_learnable_agent]):
+        print("START :: evaluating learnable agent with fixed agent %d "%fixed_ag_idx)
+        
+        eval_runners = [
+        rela.BatchRunner(eval_agent, "cuda:0", 1000, ["act"]), 
+        rela.BatchRunner(fixed_agent, "cuda:0", 1000, ["act"])
+        ]
+
         score, perfect, *_ = evaluate(
-            [eval_agent, fixed_agent],
+            None,
             1000,
             eval_seed,
             args.eval_bomb,
             0,  # explore eps
             args.sad,
+            runners=eval_runners,
         )
-        wandb.log({"epoch_"+str(fixed_ag_idx): act_epoch_cnt, "eval_score_"+str(fixed_ag_idx): score, "perfect_"+str(fixed_ag_idx): perfect})
+
+        # wandb.log({"epoch_"+str(fixed_ag_idx): act_epoch_cnt, "eval_score_"+str(fixed_ag_idx): score, "perfect_"+str(fixed_ag_idx): perfect})
         # wandb.log({"epoch_"+str(fixed_ag_idx): epoch, "perfect_"+str(fixed_ag_idx): perfect})
 
         print("epoch %d, eval score: %.4f, perfect: %.2f"
@@ -320,20 +331,29 @@ if __name__ == "__main__":
 
             context.pause()
             eval_seed = (9917 + epoch * 999999) % 7777777
-            eval_agent.load_state_dict(learnable_agent.state_dict())
+            # eval_agent.load_state_dict(learnable_agent.state_dict())
             
             # wandb.log({"epoch": epoch})
-            for fixed_ag_idx, fixed_agent in enumerate(fixed_agents + [eval_agent1]):
+            for fixed_ag_idx, fixed_agent in enumerate(fixed_agents + [fixed_learnable_agent]):
                 print("evaluating learnable agent with fixed agent %d "%fixed_ag_idx)
+                
+                eval_runners = [
+                rela.BatchRunner(eval_agent, "cuda:0", 1000, ["act"]), 
+                rela.BatchRunner(fixed_agent, "cuda:0", 1000, ["act"])
+                ]
+                eval_runners[0].update_model(learnable_agent)
+
                 score, perfect, *_ = evaluate(
-                    [eval_agent, fixed_agent],
+                    None,
                     1000,
                     eval_seed,
                     args.eval_bomb,
                     0,  # explore eps
                     args.sad,
+                    runners=eval_runners,
                 )
-                wandb.log({"epoch_"+str(fixed_ag_idx): act_epoch_cnt, "eval_score_"+str(fixed_ag_idx): score, "perfect_"+str(fixed_ag_idx): perfect})
+
+                # wandb.log({"epoch_"+str(fixed_ag_idx): act_epoch_cnt, "eval_score_"+str(fixed_ag_idx): score, "perfect_"+str(fixed_ag_idx): perfect})
                 # wandb.log({"epoch_"+str(fixed_ag_idx): epoch, "perfect_"+str(fixed_ag_idx): perfect})
 
                 print("epoch %d, eval score: %.4f, perfect: %.2f"
@@ -351,5 +371,6 @@ if __name__ == "__main__":
             
             print("model saved: %s "%(model_saved))
             
+            gc.collect()
             context.resume()
             print("==========")
