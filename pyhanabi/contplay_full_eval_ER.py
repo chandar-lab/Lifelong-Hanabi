@@ -9,7 +9,6 @@ import os
 import sys
 import argparse
 import pprint
-import pdb
 import wandb
 import gc
 import numpy as np
@@ -92,7 +91,7 @@ if __name__ == "__main__":
     torch.backends.cudnn.benchmark = True
     args = parse_args()
     lr_str = args.load_learnable_model.split("/")[2].split(".")[0]
-    exp_name = lr_str+"_fixed_"+str(len(args.load_fixed_models))+"_ind_replay_latest"
+    exp_name = lr_str+"_fixed_"+str(len(args.load_fixed_models))+"_ind_RB_ER_" + str(args.replay_buffer_size)
 
     wandb.init(project="ContPlay_Hanabi_complete", name=exp_name)
     wandb.config.update(args)
@@ -163,6 +162,7 @@ if __name__ == "__main__":
 
     fixed_agents = []
     act_groups = []
+    episodic_memory = []
 
     for opp_idx, opp_model in enumerate(args.load_fixed_models):
         fixed_agent = r2d2.R2D2Agent(
@@ -293,12 +293,57 @@ if __name__ == "__main__":
                 stopwatch.time("sync and updating")
 
                 batch, weight = replay_buffer.sample(args.batchsize, args.train_device)
+                # Looping over the replay buffers of previous tasks.
+                ## TODO: Figure out what happens to batch.h0 -- why is it empty? should it be concat?
+                prev_tasks_b = []
+                prev_tasks_w = []
+
+                for task_idx in range(len(episodic_memory)):
+                    print("Task IDx is ", task_idx)
+                    samples_per_task = (args.batchsize // len(episodic_memory))
+                    print("n samples for b,w is ", samples_per_task)
+                    b, w = episodic_memory[task_idx].sample(args.batchsize, args.train_device)
+                    prev_tasks_b.append(b)
+                    prev_tasks_w.append(w)
+                    batch_obs = {}
+                    batch_act = {}
+                    for k in batch.obs.keys():
+                        if k == "eps":
+                            batch_obs[k] = torch.cat([batch.obs[k], b.obs[k][:, :samples_per_task]], dim=1)
+                        else:
+                            batch_obs[k] = torch.cat([batch.obs[k], b.obs[k][:, :samples_per_task, :]], dim=1)
+
+                    batch.obs = batch_obs
+
+                    for k in batch.action.keys():
+                        batch_act[k] = torch.cat([batch.action[k], b.action[k][:, :samples_per_task]], dim=1)
+
+                    batch.action = batch_act
+
+                    batch.reward = torch.cat([batch.reward, b.reward[:, :samples_per_task]], dim=1) 
+                    batch.terminal = torch.cat([batch.terminal, b.terminal[:, :samples_per_task]], dim=1) 
+                    batch.bootstrap = torch.cat([batch.bootstrap, b.bootstrap[:, :samples_per_task]], dim=1) 
+
+                    batch.seq_len = torch.cat([batch.seq_len, b.seq_len[:samples_per_task]], dim=0) 
+                    weight = torch.cat([weight, w[:samples_per_task]], dim=0)
+
                 stopwatch.time("sample data")
 
+                ## TODO: find a better solution instead of this hack.
+                ## pseudo loss/priority computation for updating priority
+                for task_idx in range(len(episodic_memory)): 
+                    _, p = learnable_agent.loss(prev_tasks_b[task_idx], args.pred_weight, stat)
+                    p = rela.aggregate_priority(
+                    p.cpu(), prev_tasks_b[task_idx].seq_len.cpu(), args.eta
+                    )
+                    episodic_memory[task_idx].update_priority(p)
+
                 loss, priority = learnable_agent.loss(batch, args.pred_weight, stat)
+
                 priority = rela.aggregate_priority(
                     priority.cpu(), batch.seq_len.cpu(), args.eta
                 )
+
                 loss = (loss * weight).mean()
                 loss.backward()
 
@@ -314,7 +359,8 @@ if __name__ == "__main__":
                 torch.cuda.synchronize()
                 stopwatch.time("update model")
 
-                replay_buffer.update_priority(priority)
+                ## current task priority
+                replay_buffer.update_priority(priority[:args.batchsize])
                 stopwatch.time("updating priority")
 
                 stat["loss"].feed(loss.detach().item())
@@ -368,7 +414,9 @@ if __name__ == "__main__":
             )
             
             print("model saved: %s "%(model_saved))
-            
+
             gc.collect()
             context.resume()
             print("==========")
+    
+        episodic_memory.append(replay_buffer)

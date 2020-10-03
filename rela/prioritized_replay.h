@@ -210,6 +210,7 @@ class PrioritizedReplay {
       std::cout << "Error: previous samples' priority has not been updated." << std::endl;
       assert(false);
     }
+    // std::cout << "Batch size inside sample is : " << batchsize << std::endl;
 
     DataType batch;
     torch::Tensor priority;
@@ -244,6 +245,8 @@ class PrioritizedReplay {
       sampledIds_.clear();
       return;
     }
+    // std::cout << "inside updatePriority sample Ids size is " << (int)sampledIds_.size() << std::endl;
+    // std::cout << "inside updatePriority priority size is " << priority.size(0) << std::endl;
 
     assert(priority.dim() == 1);
     assert((int)sampledIds_.size() == priority.size(0));
@@ -274,6 +277,7 @@ class PrioritizedReplay {
   SampleWeightIds sample_(int batchsize, const std::string& device) {
     std::unique_lock<std::mutex> lk(mSampler_);
 
+    // std::cout << "batch size inside sample_ function is " << batchsize << std::endl; 
     float sum;
     int size = storage_.safeSize(&sum);
     assert(size >= batchsize);
@@ -323,6 +327,8 @@ class PrioritizedReplay {
         ++nextIdx;
       }
     }
+    // std::cout << "samples size after populating inside samples_ is " << (int)samples.size() << std::endl;
+    // std::cout << "batch size before asserting inside samples_ is " << batchsize << std::endl;
     assert((int)samples.size() == batchsize);
 
     // pop storage if full

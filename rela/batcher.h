@@ -210,7 +210,8 @@ class Batcher {
   }
 
  private:
-  const int batchsize_;
+  // const int batchsize_;
+  int batchsize_;
 
   int sumBatchsize_ = 0;
   int batchCount_ = 0;

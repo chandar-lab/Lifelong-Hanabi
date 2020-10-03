@@ -131,6 +131,10 @@ of our agents. Please refer to the [paper](https://arxiv.org/abs/1912.02318) and
 We also open-sourced a single agent implementation of R2D2 tested on Atari
 [here](https://github.com/facebookresearch/rela).
 
+## Internal use for development of Cont Hanabi project.
+
+For information on setting this up on Mila and Beluga clusters, refer to this [doc](https://docs.google.com/document/d/1114iVuh5UzUKRtPPSrJgSj0f1yirOaUYr4_7xs3T0eI/edit?usp=sharing).
+
 ## Contribute
 
 ### Python

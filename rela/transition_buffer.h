@@ -107,7 +107,8 @@ class MultiStepBuffer {
 
  private:
   const int multiStep_;
-  const int batchsize_;
+  // const int batchsize_;
+  int batchsize_;
   const float gamma_;
 
   std::deque<TensorDict> obsHistory_;
@@ -186,6 +187,7 @@ class R2D2Buffer {
     std::vector<torch::Tensor> batchSeqPriority;
     std::vector<float> batchLen;
 
+    // std::cout << "batch size inside popTransiton inside transition buffer ... " << batchsize << std::endl;
     for (int i = 0; i < batchsize; ++i) {
       if (batchLen_[i] == 0) {
         continue;
@@ -210,7 +212,8 @@ class R2D2Buffer {
         torch::tensor(batchLen));
   }
 
-  const int batchsize;
+  // const int batchsize;
+  int batchsize;
   const int numPlayer;
   const int multiStep;
   const int seqLen;

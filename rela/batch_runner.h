@@ -115,7 +115,8 @@ class BatchRunner {
   py::object pyModel_;
   torch::jit::script::Module* const jitModel_;
   const torch::Device device_;
-  const int batchsize_;
+  // const int batchsize_;
+  int batchsize_;
   const std::vector<std::string> methods_;
 
   // ideally this mutex should be 1 per device, thus global

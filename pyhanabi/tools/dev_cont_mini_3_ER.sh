@@ -5,8 +5,8 @@
 # LICENSE file in the root directory of this source tree.
 #
 #!/bin/bash
-python contplay_full_eval.py \
-       --save_dir /network/tmp1/badrinaa/hanabi_sad_models/exps/iql_2p_3_ind_RB_latest \
+python contplay_full_eval_ER.py \
+       --save_dir /network/tmp1/badrinaa/hanabi_sad_models/exps/iql_2p_3_ind_RB_ER_217 \
        --method iql \
        --num_thread 10 \
        --load_learnable_model ../models/iql_2p_3.pthw \
@@ -22,7 +22,7 @@ python contplay_full_eval.py \
        --seed 1 \
        --batchsize 128 \
        --burn_in_frames 5000 \
-       --replay_buffer_size 65536 \
+       --replay_buffer_size 131072 \
        --epoch_len 200 \
        --priority_exponent 0.9 \
        --priority_weight 0.6 \
