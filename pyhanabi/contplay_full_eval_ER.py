@@ -82,8 +82,15 @@ def parse_args():
     parser.add_argument("--act_device", type=str, default="cuda:1")
     parser.add_argument("--actor_sync_freq", type=int, default=10)
 
+    # life long learning settings
+    parser.add_argument("--ll_algo", type=str, default="ER")
+    parser.add_argument("--eval_method", type=str, default="zero_shot")
+    parser.add_argument("--add_agent_id", action="store_true", default=False)
+
     args = parser.parse_args()
     assert args.method in ["vdn", "iql"]
+    assert args.ll_algo in ["ER", "AGEM"]
+    assert args.eval_method in ["zero_shot", "few_shot"]
     return args
 
 
@@ -295,48 +302,47 @@ if __name__ == "__main__":
                 batch, weight = replay_buffer.sample(args.batchsize, args.train_device)
                 # Looping over the replay buffers of previous tasks.
                 ## TODO: Figure out what happens to batch.h0 -- why is it empty? should it be concat?
-                prev_tasks_b = []
-                prev_tasks_w = []
+                if args.ll_algo == "ER" or args.ll_algo == "AGEM":
+                    prev_tasks_b = []
+                    prev_tasks_w = []
 
-                for task_idx in range(len(episodic_memory)):
-                    print("Task IDx is ", task_idx)
-                    samples_per_task = (args.batchsize // len(episodic_memory))
-                    print("n samples for b,w is ", samples_per_task)
-                    b, w = episodic_memory[task_idx].sample(args.batchsize, args.train_device)
-                    prev_tasks_b.append(b)
-                    prev_tasks_w.append(w)
-                    batch_obs = {}
-                    batch_act = {}
-                    for k in batch.obs.keys():
-                        if k == "eps":
-                            batch_obs[k] = torch.cat([batch.obs[k], b.obs[k][:, :samples_per_task]], dim=1)
-                        else:
-                            batch_obs[k] = torch.cat([batch.obs[k], b.obs[k][:, :samples_per_task, :]], dim=1)
+                    for task_idx in range(len(episodic_memory)):
+                        samples_per_task = (args.batchsize // len(episodic_memory))
+                        b, w = episodic_memory[task_idx].sample(args.batchsize, args.train_device)
+                        prev_tasks_b.append(b)
+                        prev_tasks_w.append(w)
+                        batch_obs = {}
+                        batch_act = {}
+                        for k in batch.obs.keys():
+                            if k == "eps":
+                                batch_obs[k] = torch.cat([batch.obs[k], b.obs[k][:, :samples_per_task]], dim=1)
+                            else:
+                                batch_obs[k] = torch.cat([batch.obs[k], b.obs[k][:, :samples_per_task, :]], dim=1)
 
-                    batch.obs = batch_obs
+                        batch.obs = batch_obs
 
-                    for k in batch.action.keys():
-                        batch_act[k] = torch.cat([batch.action[k], b.action[k][:, :samples_per_task]], dim=1)
+                        for k in batch.action.keys():
+                            batch_act[k] = torch.cat([batch.action[k], b.action[k][:, :samples_per_task]], dim=1)
 
-                    batch.action = batch_act
+                        batch.action = batch_act
 
-                    batch.reward = torch.cat([batch.reward, b.reward[:, :samples_per_task]], dim=1) 
-                    batch.terminal = torch.cat([batch.terminal, b.terminal[:, :samples_per_task]], dim=1) 
-                    batch.bootstrap = torch.cat([batch.bootstrap, b.bootstrap[:, :samples_per_task]], dim=1) 
+                        batch.reward = torch.cat([batch.reward, b.reward[:, :samples_per_task]], dim=1) 
+                        batch.terminal = torch.cat([batch.terminal, b.terminal[:, :samples_per_task]], dim=1) 
+                        batch.bootstrap = torch.cat([batch.bootstrap, b.bootstrap[:, :samples_per_task]], dim=1) 
 
-                    batch.seq_len = torch.cat([batch.seq_len, b.seq_len[:samples_per_task]], dim=0) 
-                    weight = torch.cat([weight, w[:samples_per_task]], dim=0)
+                        batch.seq_len = torch.cat([batch.seq_len, b.seq_len[:samples_per_task]], dim=0) 
+                        weight = torch.cat([weight, w[:samples_per_task]], dim=0)
 
-                stopwatch.time("sample data")
+                    stopwatch.time("sample data")
 
-                ## TODO: find a better solution instead of this hack.
-                ## pseudo loss/priority computation for updating priority
-                for task_idx in range(len(episodic_memory)): 
-                    _, p = learnable_agent.loss(prev_tasks_b[task_idx], args.pred_weight, stat)
-                    p = rela.aggregate_priority(
-                    p.cpu(), prev_tasks_b[task_idx].seq_len.cpu(), args.eta
-                    )
-                    episodic_memory[task_idx].update_priority(p)
+                    ## TODO: find a better solution instead of this hack.
+                    ## pseudo loss/priority computation for updating priority
+                    for task_idx in range(len(episodic_memory)): 
+                        _, p = learnable_agent.loss(prev_tasks_b[task_idx], args.pred_weight, stat)
+                        p = rela.aggregate_priority(
+                        p.cpu(), prev_tasks_b[task_idx].seq_len.cpu(), args.eta
+                        )
+                        episodic_memory[task_idx].update_priority(p)
 
                 loss, priority = learnable_agent.loss(batch, args.pred_weight, stat)
 
