@@ -55,13 +55,17 @@ def parse_args():
     parser.add_argument("--batchsize", type=int, default=128)
     parser.add_argument("--num_epoch", type=int, default=500)
     parser.add_argument("--epoch_len", type=int, default=1000)
+    parser.add_argument("--eval_num_epoch", type=int, default=5)
+    parser.add_argument("--eval_epoch_len", type=int, default=1000)
     parser.add_argument("--num_update_between_sync", type=int, default=2500)
+    parser.add_argument("--eval_num_update_between_sync", type=int, default=5)
 
     # DQN settings
     parser.add_argument("--multi_step", type=int, default=3)
 
     # replay buffer settings
     parser.add_argument("--burn_in_frames", type=int, default=80000)
+    parser.add_argument("--eval_burn_in_frames", type=int, default=1000)
     parser.add_argument("--replay_buffer_size", type=int, default=2 ** 20)
     parser.add_argument(
         "--priority_exponent", type=float, default=0.6, help="prioritized replay alpha",
@@ -81,6 +85,9 @@ def parse_args():
     parser.add_argument("--act_eps_alpha", type=float, default=7)
     parser.add_argument("--act_device", type=str, default="cuda:1")
     parser.add_argument("--actor_sync_freq", type=int, default=10)
+    parser.add_argument("--eval_actor_sync_freq", type=int, default=1)
+    parser.add_argument("--eval_freq", type=int, default=10)
+
 
     # life long learning settings
     parser.add_argument("--ll_algo", type=str, default="ER")
@@ -168,7 +175,6 @@ if __name__ == "__main__":
     fixed_learnable_agent = learnable_agent.clone(args.train_device, {"vdn": False})
 
     fixed_agents = []
-    act_groups = []
     episodic_memory = []
 
     for opp_idx, opp_model in enumerate(args.load_fixed_models):
@@ -258,7 +264,6 @@ if __name__ == "__main__":
             args.num_player,
             replay_buffer,
         )
-        act_groups.append(act_group)
 
         assert args.shuffle_obs == False, 'not working with 2nd order aux'
         context, threads = create_threads(
@@ -326,18 +331,18 @@ if __name__ == "__main__":
 
                         batch.action = batch_act
 
-                        batch.reward = torch.cat([batch.reward, b.reward[:, :samples_per_task]], dim=1) 
-                        batch.terminal = torch.cat([batch.terminal, b.terminal[:, :samples_per_task]], dim=1) 
-                        batch.bootstrap = torch.cat([batch.bootstrap, b.bootstrap[:, :samples_per_task]], dim=1) 
+                        batch.reward = torch.cat([batch.reward, b.reward[:, :samples_per_task]], dim=1)
+                        batch.terminal = torch.cat([batch.terminal, b.terminal[:, :samples_per_task]], dim=1)
+                        batch.bootstrap = torch.cat([batch.bootstrap, b.bootstrap[:, :samples_per_task]], dim=1)
 
-                        batch.seq_len = torch.cat([batch.seq_len, b.seq_len[:samples_per_task]], dim=0) 
+                        batch.seq_len = torch.cat([batch.seq_len, b.seq_len[:samples_per_task]], dim=0)
                         weight = torch.cat([weight, w[:samples_per_task]], dim=0)
 
                     stopwatch.time("sample data")
 
                     ## TODO: find a better solution instead of this hack.
                     ## pseudo loss/priority computation for updating priority
-                    for task_idx in range(len(episodic_memory)): 
+                    for task_idx in range(len(episodic_memory)):
                         _, p = learnable_agent.loss(prev_tasks_b[task_idx], args.pred_weight, stat)
                         p = rela.aggregate_priority(
                         p.cpu(), prev_tasks_b[task_idx].seq_len.cpu(), args.eta
@@ -385,41 +390,122 @@ if __name__ == "__main__":
             # eval_agent.load_state_dict(learnable_agent.state_dict())
             
             # wandb.log({"epoch": epoch})
-            for fixed_ag_idx, fixed_agent in enumerate(fixed_agents + [fixed_learnable_agent]):
-                print("evaluating learnable agent with fixed agent %d "%fixed_ag_idx)
-                
-                eval_runners = [
-                rela.BatchRunner(eval_agent, "cuda:0", 1000, ["act"]), 
-                rela.BatchRunner(fixed_agent, "cuda:0", 1000, ["act"])
-                ]
-                eval_runners[0].update_model(learnable_agent)
+            if (epoch+1) % args.eval_freq == 0:
+                for fixed_ag_idx, fixed_agent in enumerate(fixed_agents + [fixed_learnable_agent]):
+                    eval_runners = [
+                        rela.BatchRunner(eval_agent, "cuda:0", 1000, ["act"]),
+                        rela.BatchRunner(fixed_agent, "cuda:0", 1000, ["act"])
+                    ]
+                    print("evaluating learnable agent with fixed agent %d "%fixed_ag_idx)
 
-                score, perfect, *_ = evaluate(
-                    None,
-                    1000,
-                    eval_seed,
-                    args.eval_bomb,
-                    0,  # explore eps
-                    args.sad,
-                    runners=eval_runners,
+                    if args.eval_method == 'few_shot' and epoch+1 == args.epoch_len:
+                        print("Few Learning ...")
+                        few_shot_learnable_agent = learnable_agent.clone(args.train_device, {"vdn": False})
+                        eval_optim = torch.optim.Adam(few_shot_learnable_agent.online_net.parameters(), lr=args.lr,
+                                                      eps=args.eps)
+                        eval_replay_buffer = rela.RNNPrioritizedReplay(
+                            args.replay_buffer_size,
+                            args.seed,
+                            args.priority_exponent,
+                            args.priority_weight,
+                            args.prefetch,
+                        )
+
+                        eval_act_group = ActGroup(
+                            args.method,
+                            args.act_device,
+                            [few_shot_learnable_agent, fixed_agent],
+                            args.num_thread,
+                            args.num_game_per_thread,
+                            args.multi_step,
+                            args.gamma,
+                            args.eta,
+                            args.max_len,
+                            args.num_player,
+                            eval_replay_buffer,
+                        )
+                        eval_context, eval_threads = create_threads(
+                            args.num_thread, args.num_game_per_thread, eval_act_group.actors, games,
+                        )
+                        eval_act_group.start()
+                        eval_context.start()
+                        while eval_replay_buffer.size() < args.eval_burn_in_frames:
+                            print("warming up replay buffer:", eval_replay_buffer.size())
+                            time.sleep(1)
+                        eval_stat = common_utils.MultiCounter(args.save_dir)
+
+                        for eval_epoch in range(args.eval_num_epoch):
+                            print("beginning of eval epoch: ", eval_epoch)
+                            eval_stat.reset()
+                            for eval_batch_idx in range(args.eval_epoch_len):
+                                eval_num_update = eval_batch_idx + eval_epoch * args.eval_epoch_len
+                                if eval_num_update % args.eval_num_update_between_sync == 0:
+                                    few_shot_learnable_agent.sync_target_with_online()
+                                if eval_num_update % args.eval_actor_sync_freq == 0:
+                                    eval_act_group.update_model(few_shot_learnable_agent)
+
+                                batch, weight = eval_replay_buffer.sample(args.batchsize, args.train_device)
+
+                                torch.cuda.synchronize()
+                                stopwatch.time("sync and updating")
+
+                                loss, priority = few_shot_learnable_agent.loss(batch, args.pred_weight, eval_stat)
+
+                                priority = rela.aggregate_priority(
+                                    priority.cpu(), batch.seq_len.cpu(), args.eta
+                                )
+
+                                loss = (loss * weight).mean()
+                                loss.backward()
+
+                                torch.cuda.synchronize()
+
+                                g_norm = torch.nn.utils.clip_grad_norm_(
+                                    few_shot_learnable_agent.online_net.parameters(), args.grad_clip
+                                )
+                                eval_optim.step()
+                                eval_optim.zero_grad()
+
+                                torch.cuda.synchronize()
+
+                                ## current task priority
+                                eval_replay_buffer.update_priority(priority[:args.batchsize])
+
+                                eval_stat["loss"].feed(loss.detach().item())
+                                eval_stat["grad_norm"].feed(g_norm.detach().item())
+                                eval_stat.summary(eval_epoch)
+                        eval_context.pause()
+
+                        eval_runners[0].update_model(few_shot_learnable_agent)
+                    else:
+                        eval_runners[0].update_model(learnable_agent)
+
+                    score, perfect, *_ = evaluate(
+                        None,
+                        1000,
+                        eval_seed,
+                        args.eval_bomb,
+                        0,  # explore eps
+                        args.sad,
+                        runners=eval_runners,
+                    )
+
+                    wandb.log({"epoch_"+str(fixed_ag_idx): act_epoch_cnt, "eval_score_"+str(fixed_ag_idx): score, "perfect_"+str(fixed_ag_idx): perfect})
+
+                    print("epoch %d, eval score: %.4f, perfect: %.2f"
+                    % (act_epoch_cnt, score, perfect * 100)
+                    )
+
+                if act_epoch_cnt > 0 and act_epoch_cnt % 50 == 0:
+                    force_save_name = "model_epoch%d" % act_epoch_cnt
+                else:
+                    force_save_name = None
+
+                model_saved = saver.save(
+                    None, learnable_agent.online_net.state_dict(), score, force_save_name=force_save_name
                 )
-
-                wandb.log({"epoch_"+str(fixed_ag_idx): act_epoch_cnt, "eval_score_"+str(fixed_ag_idx): score, "perfect_"+str(fixed_ag_idx): perfect})
-
-                print("epoch %d, eval score: %.4f, perfect: %.2f"
-                % (act_epoch_cnt, score, perfect * 100)
-                )
-
-            if act_epoch_cnt > 0 and act_epoch_cnt % 50 == 0:
-                force_save_name = "model_epoch%d" % act_epoch_cnt
-            else:
-                force_save_name = None
-
-            model_saved = saver.save(
-                None, learnable_agent.online_net.state_dict(), score, force_save_name=force_save_name
-            )
             
-            print("model saved: %s "%(model_saved))
+                print("model saved: %s "%(model_saved))
 
             gc.collect()
             context.resume()
