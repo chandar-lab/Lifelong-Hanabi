@@ -67,6 +67,7 @@ def parse_args():
     parser.add_argument("--burn_in_frames", type=int, default=80000)
     parser.add_argument("--eval_burn_in_frames", type=int, default=1000)
     parser.add_argument("--replay_buffer_size", type=int, default=2 ** 20)
+    parser.add_argument("--eval_replay_buffer_size", type=int, default=2 ** 20)
     parser.add_argument(
         "--priority_exponent", type=float, default=0.6, help="prioritized replay alpha",
     )
@@ -86,12 +87,12 @@ def parse_args():
     parser.add_argument("--act_device", type=str, default="cuda:1")
     parser.add_argument("--actor_sync_freq", type=int, default=10)
     parser.add_argument("--eval_actor_sync_freq", type=int, default=1)
-    parser.add_argument("--eval_freq", type=int, default=10)
+    parser.add_argument("--eval_freq", type=int, default=20)
 
 
     # life long learning settings
     parser.add_argument("--ll_algo", type=str, default="ER")
-    parser.add_argument("--eval_method", type=str, default="zero_shot")
+    parser.add_argument("--eval_method", type=str, default="few_shot")
     parser.add_argument("--add_agent_id", action="store_true", default=False)
 
     args = parser.parse_args()
@@ -105,7 +106,7 @@ if __name__ == "__main__":
     torch.backends.cudnn.benchmark = True
     args = parse_args()
     lr_str = args.load_learnable_model.split("/")[2].split(".")[0]
-    exp_name = lr_str+"_fixed_"+str(len(args.load_fixed_models))+"_ind_RB_ER_" + str(args.replay_buffer_size)
+    exp_name = lr_str+"_fixed_"+str(len(args.load_fixed_models))+"_ind_RB_FewShot_" + str(args.replay_buffer_size)
 
     wandb.init(project="ContPlay_Hanabi_complete", name=exp_name)
     wandb.config.update(args)
@@ -223,8 +224,8 @@ if __name__ == "__main__":
 
         wandb.log({"epoch_"+str(fixed_ag_idx): act_epoch_cnt, "eval_score_"+str(fixed_ag_idx): score, "perfect_"+str(fixed_ag_idx): perfect})
 
-        print("epoch %d, eval score: %.4f, perfect: %.2f"
-        % (act_epoch_cnt, score, perfect * 100)
+        print("epoch %d, fixed agent %s, eval score: %.4f, perfect: %.2f"
+        % (act_epoch_cnt, str(fixed_ag_idx), score, perfect * 100)
         )
 
     for fixed_agent in fixed_agents:
@@ -307,6 +308,8 @@ if __name__ == "__main__":
                 batch, weight = replay_buffer.sample(args.batchsize, args.train_device)
                 # Looping over the replay buffers of previous tasks.
                 ## TODO: Figure out what happens to batch.h0 -- why is it empty? should it be concat?
+                ## TODO: With > 3 fixed agents, batch size for episodic memory would not be equal to current task.
+                ## TODO: If possible, fix the actual C++ thing where batch size is interfaced so that .sample would return desired number of samples.
                 if args.ll_algo == "ER" or args.ll_algo == "AGEM":
                     prev_tasks_b = []
                     prev_tasks_w = []
@@ -398,17 +401,30 @@ if __name__ == "__main__":
                     ]
                     print("evaluating learnable agent with fixed agent %d "%fixed_ag_idx)
 
-                    if args.eval_method == 'few_shot' and epoch+1 == args.epoch_len:
-                        print("Few Learning ...")
+                    if args.eval_method == 'few_shot':
+                        print("Few Shot Learning ...")
                         few_shot_learnable_agent = learnable_agent.clone(args.train_device, {"vdn": False})
                         eval_optim = torch.optim.Adam(few_shot_learnable_agent.online_net.parameters(), lr=args.lr,
                                                       eps=args.eps)
                         eval_replay_buffer = rela.RNNPrioritizedReplay(
                             args.replay_buffer_size,
-                            args.seed,
+                            eval_seed,
                             args.priority_exponent,
                             args.priority_weight,
                             args.prefetch,
+                        )
+
+                        eval_games = create_envs(
+                            args.num_thread * args.num_game_per_thread,
+                            eval_seed,
+                            args.num_player,
+                            args.hand_size,
+                            args.train_bomb,
+                            explore_eps,
+                            args.max_len,
+                            args.sad,
+                            args.shuffle_obs,
+                            args.shuffle_color,
                         )
 
                         eval_act_group = ActGroup(
@@ -425,7 +441,7 @@ if __name__ == "__main__":
                             eval_replay_buffer,
                         )
                         eval_context, eval_threads = create_threads(
-                            args.num_thread, args.num_game_per_thread, eval_act_group.actors, games,
+                            args.num_thread, args.num_game_per_thread, eval_act_group.actors, eval_games,
                         )
                         eval_act_group.start()
                         eval_context.start()
@@ -473,9 +489,8 @@ if __name__ == "__main__":
 
                                 eval_stat["loss"].feed(loss.detach().item())
                                 eval_stat["grad_norm"].feed(g_norm.detach().item())
-                                eval_stat.summary(eval_epoch)
+                            eval_stat.summary(eval_epoch)
                         eval_context.pause()
-
                         eval_runners[0].update_model(few_shot_learnable_agent)
                     else:
                         eval_runners[0].update_model(learnable_agent)
@@ -492,8 +507,8 @@ if __name__ == "__main__":
 
                     wandb.log({"epoch_"+str(fixed_ag_idx): act_epoch_cnt, "eval_score_"+str(fixed_ag_idx): score, "perfect_"+str(fixed_ag_idx): perfect})
 
-                    print("epoch %d, eval score: %.4f, perfect: %.2f"
-                    % (act_epoch_cnt, score, perfect * 100)
+                    print("epoch %d, fixed agent %s, eval score: %.4f, perfect: %.2f"
+                    % (act_epoch_cnt, str(fixed_ag_idx), score, perfect * 100)
                     )
 
                 if act_epoch_cnt > 0 and act_epoch_cnt % 50 == 0:
