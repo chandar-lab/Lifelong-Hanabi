@@ -95,9 +95,13 @@ def parse_args():
     parser.add_argument("--eval_method", type=str, default="few_shot")
     parser.add_argument("--add_agent_id", action="store_true", default=False)
 
+    ## wandb experimentation settings
+    parser.add_argument("--use_wandb", action="store_true", default=False)
+    parser.add_argument("--run_wandb_offline", action="store_true", default=False)
+
     args = parser.parse_args()
     assert args.method in ["vdn", "iql"]
-    assert args.ll_algo in ["ER", "AGEM"]
+    assert args.ll_algo in ["ER", "AGEM", "None"]
     assert args.eval_method in ["zero_shot", "few_shot"]
     return args
 
@@ -106,10 +110,16 @@ if __name__ == "__main__":
     torch.backends.cudnn.benchmark = True
     args = parse_args()
     lr_str = args.load_learnable_model.split("/")[2].split(".")[0]
-    exp_name = lr_str+"_fixed_"+str(len(args.load_fixed_models))+"_ind_RB_FewShot_" + str(args.replay_buffer_size)
+    
+    if args.use_wandb:
+        print("Using wandb for experimentation ... ")
+        if args.run_wandb_offline:
+            os.environ['WANDB_MODE'] = 'dryrun'
+        exp_name = lr_str+"_fixed_"+str(len(args.load_fixed_models))+"_ind_RB_FewShot_" + str(args.replay_buffer_size)+"_"+args.ll_algo
+        wandb.init(project="ContPlay_Hanabi_complete", name=exp_name)
+        wandb.config.update(args)
 
-    wandb.init(project="ContPlay_Hanabi_complete", name=exp_name)
-    wandb.config.update(args)
+
     
     if not os.path.exists(args.save_dir):
         os.makedirs(args.save_dir)
@@ -221,8 +231,9 @@ if __name__ == "__main__":
             args.sad,
             runners=eval_runners,
         )
-
-        wandb.log({"epoch_"+str(fixed_ag_idx): act_epoch_cnt, "eval_score_"+str(fixed_ag_idx): score, "perfect_"+str(fixed_ag_idx): perfect})
+        
+        if args.use_wandb:
+            wandb.log({"epoch_"+str(fixed_ag_idx): act_epoch_cnt, "eval_score_"+str(fixed_ag_idx): score, "perfect_"+str(fixed_ag_idx): perfect})
 
         print("epoch %d, fixed agent %s, eval score: %.4f, perfect: %.2f"
         % (act_epoch_cnt, str(fixed_ag_idx), score, perfect * 100)
@@ -316,6 +327,9 @@ if __name__ == "__main__":
 
                     for task_idx in range(len(episodic_memory)):
                         samples_per_task = (args.batchsize // len(episodic_memory))
+                        n_residual = args.batchsize - (samples_per_task * len(episodic_memory))
+                        if task_idx < n_residual:
+                            samples_per_task += 1 
                         b, w = episodic_memory[task_idx].sample(args.batchsize, args.train_device)
                         prev_tasks_b.append(b)
                         prev_tasks_w.append(w)
@@ -505,7 +519,8 @@ if __name__ == "__main__":
                         runners=eval_runners,
                     )
 
-                    wandb.log({"epoch_"+str(fixed_ag_idx): act_epoch_cnt, "eval_score_"+str(fixed_ag_idx): score, "perfect_"+str(fixed_ag_idx): perfect})
+                    if args.use_wandb:
+                        wandb.log({"epoch_"+str(fixed_ag_idx): act_epoch_cnt, "eval_score_"+str(fixed_ag_idx): score, "perfect_"+str(fixed_ag_idx): perfect})
 
                     print("epoch %d, fixed agent %s, eval score: %.4f, perfect: %.2f"
                     % (act_epoch_cnt, str(fixed_ag_idx), score, perfect * 100)

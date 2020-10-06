@@ -8,9 +8,11 @@
 python contplay_full_eval_FewShot.py \
        --save_dir /network/tmp1/badrinaa/hanabi_sad_models/exps/iql_2p_3_ind_RB_Few_Shot \
        --method iql \
+       --ll_algo ER \
+       --use_wandb \
        --num_thread 10 \
        --load_learnable_model ../models/iql_2p_3.pthw \
-       --load_fixed_model ../models/iql_2p_1.pthw ../models/iql_2p_4.pthw ../models/iql_2p_5.pthw \
+       --load_fixed_model ../models/iql_2p_4.pthw ../models/iql_2p_5.pthw ../models/iql_2p_11.pthw ../models/iql_2p_204.pthw \
        --num_game_per_thread 80 \
        --sad 0 \
        --act_base_eps 0.1 \
