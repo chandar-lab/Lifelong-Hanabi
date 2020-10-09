@@ -91,7 +91,7 @@ def parse_args():
 
 
     # life long learning settings
-    parser.add_argument("--ll_algo", type=str, default="ER")
+    parser.add_argument("--ll_algo", type=str, default="AGEM")
     parser.add_argument("--eval_method", type=str, default="zero_shot")
     parser.add_argument("--add_agent_id", action="store_true", default=False)
 
@@ -116,7 +116,7 @@ if __name__ == "__main__":
         if args.run_wandb_offline:
             os.environ['WANDB_MODE'] = 'dryrun'
         rb_exp_name = int(args.replay_buffer_size) // 1000
-        exp_name = lr_str+"_fixed_"+str(len(args.load_fixed_models))+"_ind_RB_"+args.eval_method+"_"+ str(rb_exp_name)+"k_"+args.ll_algo
+        exp_name = lr_str+"_fixed_"+str(len(args.load_fixed_models))+"_ind_RB_"+args.eval_method+"_"+str(rb_exp_name)+"k_"+args.ll_algo
         wandb.init(project="ContPlay_Hanabi_complete", name=exp_name)
         wandb.config.update(args)
 
@@ -240,7 +240,7 @@ if __name__ == "__main__":
         % (act_epoch_cnt, str(fixed_ag_idx), score, perfect * 100)
         )
 
-    for fixed_agent in fixed_agents:
+    for task_idx, fixed_agent in enumerate(fixed_agents):
         ## TODO: Exp decision : do we want different replay buffer when playing with diff opponents
         ## i.e do we want to replay prev experiences? 
         replay_buffer = rela.RNNPrioritizedReplay(
@@ -318,12 +318,15 @@ if __name__ == "__main__":
                 stopwatch.time("sync and updating")
 
                 batch, weight = replay_buffer.sample(args.batchsize, args.train_device)
+
                 # Looping over the replay buffers of previous tasks.
                 ## TODO: Figure out what happens to batch.h0 -- why is it empty? should it be concat?
                 ## TODO: If possible, fix the actual C++ thing where batch size is interfaced so that .sample would return desired number of samples.
-                if args.ll_algo == "ER":
+                if args.ll_algo == "AGEM":
                     prev_tasks_b = []
                     prev_tasks_w = []
+                    batch_obs = {}
+                    batch_act = {}
 
                     for prev_task_idx in range(len(episodic_memory)):
                         samples_per_task = (args.batchsize // len(episodic_memory))
@@ -333,32 +336,52 @@ if __name__ == "__main__":
                         b, w = episodic_memory[prev_task_idx].sample(args.batchsize, args.train_device)
                         prev_tasks_b.append(b)
                         prev_tasks_w.append(w)
-                        batch_obs = {}
-                        batch_act = {}
-                        for k in batch.obs.keys():
-                            if k == "eps":
-                                batch_obs[k] = torch.cat([batch.obs[k], b.obs[k][:, :samples_per_task]], dim=1)
-                            else:
-                                batch_obs[k] = torch.cat([batch.obs[k], b.obs[k][:, :samples_per_task, :]], dim=1)
 
-                        batch.obs = batch_obs
+                        if prev_task_idx == 0:
+                            for k in b.obs.keys():
+                                if k == "eps":
+                                    batch_obs[k] = b.obs[k][:, :samples_per_task]
+                                else:
+                                    batch_obs[k] = b.obs[k][:, :samples_per_task, :]
+                        elif prev_task_idx > 0:
+                            for k in b.obs.keys():
+                                if k == "eps":
+                                    batch_obs[k] = torch.cat([batch_obs[k], b.obs[k][:, :samples_per_task]], dim=1)
+                                else:
+                                    batch_obs[k] = torch.cat([batch_obs[k], b.obs[k][:, :samples_per_task, :]], dim=1)
 
-                        for k in batch.action.keys():
-                            batch_act[k] = torch.cat([batch.action[k], b.action[k][:, :samples_per_task]], dim=1)
+                        if prev_task_idx == 0:
+                            for k in b.action.keys():
+                                batch_act[k] = b.action[k][:, :samples_per_task]
+                        elif prev_task_idx > 0:
+                            for k in b.action.keys():
+                                batch_act[k] = torch.cat([batch_act[k], b.action[k][:, :samples_per_task]], dim=1)
 
-                        batch.action = batch_act
+                        if prev_task_idx == 0:
+                            batch_reward = b.reward[:, :samples_per_task]
+                            batch_terminal = b.terminal[:, :samples_per_task]
+                            batch_bootstrap = b.bootstrap[:, :samples_per_task]
+                            batch_seq_len = b.seq_len[:samples_per_task]
+                            batch_weight = w[:samples_per_task]
+                        elif prev_task_idx > 0:
+                            batch_reward = torch.cat([batch_reward, b.reward[:, :samples_per_task]], dim=1)
+                            batch_terminal = torch.cat([batch_terminal, b.terminal[:, :samples_per_task]], dim=1)
+                            batch_bootstrap = torch.cat([batch_bootstrap, b.bootstrap[:, :samples_per_task]], dim=1)
+                            batch_seq_len = torch.cat([batch_seq_len, b.seq_len[:samples_per_task]], dim=0)
+                            batch_weight = torch.cat([batch_weight, w[:samples_per_task]], dim=0)
 
-                        batch.reward = torch.cat([batch.reward, b.reward[:, :samples_per_task]], dim=1)
-                        batch.terminal = torch.cat([batch.terminal, b.terminal[:, :samples_per_task]], dim=1)
-                        batch.bootstrap = torch.cat([batch.bootstrap, b.bootstrap[:, :samples_per_task]], dim=1)
+                        if prev_task_idx == len(episodic_memory)-1:
+                            b.obs = batch_obs
+                            b.action = batch_act
+                            b.reward = batch_reward
+                            b.terminal = batch_terminal
+                            b.bootstrap = batch_bootstrap
+                            b.seq_len = batch_seq_len
 
-                        batch.seq_len = torch.cat([batch.seq_len, b.seq_len[:samples_per_task]], dim=0)
-                        weight = torch.cat([weight, w[:samples_per_task]], dim=0)
+                            w = batch_weight   
 
                     stopwatch.time("sample data")
-
-                    ## TODO: find a better solution instead of this hack slicing priority.
-                    ## pseudo loss/priority computation for updating priority
+                    ## TODO: find a better solution instead of this hack of slicing priority
                     for prev_task_idx in range(len(episodic_memory)):
                         _, p = learnable_agent.loss(prev_tasks_b[prev_task_idx], args.pred_weight, stat)
                         p = rela.aggregate_priority(
@@ -366,14 +389,66 @@ if __name__ == "__main__":
                         )
                         episodic_memory[prev_task_idx].update_priority(p)
 
-                loss, priority = learnable_agent.loss(batch, args.pred_weight, stat)
+                ## previous tasks average loss
+                if task_idx > 0:
+                    loss_replay, _ = learnable_agent.loss(b, args.pred_weight, stat)
+                    loss_replay = (loss_replay * w).mean()
+                    loss_replay.backward()
+
+                    ## reorganize the gradient of replayed batch as a single vector
+                    grad_rep = []
+                    for p in learnable_agent.online_net.parameters():
+                        if p.requires_grad:
+                            if p.grad is not None:
+                                grad_rep.append(p.grad.view(-1))
+                    grad_rep = torch.cat(grad_rep)
+                    ## reset gradients (with A-GEM the gradients of replayed batch should only be used as inequality constraints)
+                    optim.zero_grad()
+
+
+                ## current task loss
+                loss_cur, priority = learnable_agent.loss(batch, args.pred_weight, stat)
 
                 priority = rela.aggregate_priority(
                     priority.cpu(), batch.seq_len.cpu(), args.eta
                 )
 
-                loss = (loss * weight).mean()
-                loss.backward()
+                # print("weight sum before calculating loss cur is ", weight.sum())
+                loss_cur = (loss_cur * weight).mean()
+                loss_cur.backward()
+
+                
+                # total_learnable_parameters = sum(p.numel() for p in learnable_agent.online_net.parameters() if p.requires_grad)
+                # print("total learnable parameters ", total_learnable_parameters)
+                # print("Length of p is  ", len(list(learnable_agent.online_net.parameters())))
+
+                if task_idx > 0:
+                    ## reorganize the gradient of the current batch as a single vector
+                    grad_cur = []
+                    for i,p in enumerate(list(learnable_agent.online_net.parameters())):
+                        if p.requires_grad:
+                            if p.grad is not None:
+                                grad_cur.append(p.grad.view(-1))
+                    grad_cur = torch.cat(grad_cur)
+
+                    # print("grad rep size is ", grad_rep.size())
+                    # print("grad cur size is ", grad_cur.size())
+
+                    ## adding A-GEM projection inequality.
+                    angle = (grad_cur*grad_rep).sum()
+                    if angle < 0:
+                        print("angle less than 0 ... ")
+                    # -if violated, project the gradient of the current batch onto the gradient of the replayed batch ...
+                        length_rep = (grad_rep*grad_rep).sum()
+                        grad_proj = grad_cur-(angle/length_rep)*grad_rep
+                        # -...and replace all the gradients within the model with this projected gradient
+                        index = 0
+                        for p in learnable_agent.online_net.parameters():
+                            if p.requires_grad:
+                                if p.grad is not None:
+                                    n_param = p.numel()  # number of parameters in [p]
+                                    p.grad.copy_(grad_proj[index:index+n_param].view_as(p))
+                                    index += n_param
 
                 torch.cuda.synchronize()
                 stopwatch.time("forward & backward")
@@ -391,7 +466,7 @@ if __name__ == "__main__":
                 replay_buffer.update_priority(priority[:args.batchsize])
                 stopwatch.time("updating priority")
 
-                stat["loss"].feed(loss.detach().item())
+                stat["loss"].feed(loss_cur.detach().item())
                 stat["grad_norm"].feed(g_norm.detach().item())
 
             count_factor = args.num_player if args.method == "vdn" else 1

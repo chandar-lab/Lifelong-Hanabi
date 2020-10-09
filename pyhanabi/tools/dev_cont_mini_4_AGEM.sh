@@ -1,19 +1,13 @@
-# Copyright (c) Facebook, Inc. and its affiliates.
-# All rights reserved.
-#
-# This source code is licensed under the license found in the
-# LICENSE file in the root directory of this source tree.
-#
 #!/bin/bash
-EVAL_METHOD="zero_shot"
-python contplay_full_eval_ER.py \
-       --save_dir /network/tmp1/badrinaa/hanabi_sad_models/exps/iql_2p_3_ind_RB_${EVAL_METHOD}_ER \
+EVAL_METHOD="few_shot"
+python contplay_full_eval_AGEM.py \
+       --save_dir /network/tmp1/badrinaa/hanabi_sad_models/exps/iql_2p_4_ind_RB_${EVAL_METHOD}_AGEM \
        --method iql \
-       --ll_algo ER \
+       --ll_algo AGEM \
        --use_wandb \
        --num_thread 10 \
        --load_learnable_model ../models/iql_2p_3.pthw \
-       --load_fixed_model ../models/iql_2p_1.pthw ../models/iql_2p_4.pthw ../models/iql_2p_5.pthw \
+       --load_fixed_model ../models/iql_2p_4.pthw ../models/iql_2p_5.pthw ../models/iql_2p_11.pthw ../models/iql_2p_204.pthw \
        --num_game_per_thread 80 \
        --sad 0 \
        --act_base_eps 0.1 \
@@ -33,8 +27,9 @@ python contplay_full_eval_ER.py \
        --priority_weight 0.6 \
        --train_bomb 0 \
        --eval_bomb 0 \
-       --eval_epoch_len 100 \
+       --eval_epoch_len 50 \
        --eval_method ${EVAL_METHOD} \
+       --eval_freq 50 \
        --num_player 2 \
        --rnn_hid_dim 512 \
        --act_device cuda:0,cuda:1 \

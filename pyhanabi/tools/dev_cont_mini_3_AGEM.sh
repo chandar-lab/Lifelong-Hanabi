@@ -1,15 +1,9 @@
-# Copyright (c) Facebook, Inc. and its affiliates.
-# All rights reserved.
-#
-# This source code is licensed under the license found in the
-# LICENSE file in the root directory of this source tree.
-#
 #!/bin/bash
 EVAL_METHOD="zero_shot"
-python contplay_full_eval_ER.py \
-       --save_dir /network/tmp1/badrinaa/hanabi_sad_models/exps/iql_2p_3_ind_RB_${EVAL_METHOD}_ER \
+python contplay_full_eval_AGEM.py \
+       --save_dir /network/tmp1/badrinaa/hanabi_sad_models/exps/iql_2p_3_ind_RB_${EVAL_METHOD}_AGEM \
        --method iql \
-       --ll_algo ER \
+       --ll_algo AGEM \
        --use_wandb \
        --num_thread 10 \
        --load_learnable_model ../models/iql_2p_3.pthw \
