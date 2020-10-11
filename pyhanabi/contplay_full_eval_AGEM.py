@@ -595,10 +595,10 @@ if __name__ == "__main__":
                     )
 
                     if args.use_wandb:
-                        wandb.log({"epoch_"+str(fixed_ag_idx): act_epoch_cnt, "eval_score_"+str(fixed_ag_idx): score, "perfect_"+str(fixed_ag_idx): perfect})
+                        wandb.log({"epoch_"+str(eval_fixed_ag_idx): act_epoch_cnt, "eval_score_"+str(eval_fixed_ag_idx): score, "perfect_"+str(eval_fixed_ag_idx): perfect})
 
                     print("epoch %d, fixed agent %s, eval score: %.4f, perfect: %.2f"
-                    % (act_epoch_cnt, str(fixed_ag_idx), score, perfect * 100)
+                    % (act_epoch_cnt, str(eval_fixed_ag_idx), score, perfect * 100)
                     )
 
                 if act_epoch_cnt > 0 and act_epoch_cnt % 50 == 0:
