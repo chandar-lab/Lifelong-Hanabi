@@ -6,7 +6,6 @@ python contplay_full_eval_AGEM.py \
        --method iql \
        --ll_algo AGEM \
        --use_wandb \
-       --run_wandb_offline \
        --num_thread 10 \
        --load_learnable_model ../models/iql_2p_3.pthw \
        --load_fixed_model ../models/iql_2p_1.pthw ../models/iql_2p_4.pthw ../models/iql_2p_5.pthw \
