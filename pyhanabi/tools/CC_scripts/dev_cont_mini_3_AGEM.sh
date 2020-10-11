@@ -1,4 +1,14 @@
 #!/bin/bash
+#SBATCH --account=rrg-bengioy-ad
+#SBATCH --cpus-per-task=8
+#SBATCH --gres=gpu:2
+#SBATCH --mem=180G
+#SBATCH --time=24:00:00
+#SBATCH -o /scratch/akb/agem_zs-%j.out
+
+export PYTHONPATH=/home/akb/CMAL_Hanabi:$PYTHONPATH
+export OMP_NUM_THREADS=1
+
 EVAL_METHOD="zero_shot"
 python contplay_full_eval_AGEM.py \
        --save_dir exps/iql_2p_3_ind_RB_${EVAL_METHOD}_AGEM \
