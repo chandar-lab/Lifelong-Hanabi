@@ -15,6 +15,7 @@ import numpy as np
 import pandas as pd
 import torch
 import r2d2
+import r2d2_2ll
 import utils
 from eval import evaluate
 
@@ -43,11 +44,30 @@ def evaluate_legacy_model(
         state_dict = torch.load(weight_file)
         input_dim = state_dict["net.0.weight"].size()[1]
         hid_dim = 512
+        num_lstm_layer = 2
         output_dim = state_dict["fc_a.weight"].size()[0]
 
-        agent = r2d2.R2D2Agent(
-            False, 3, 0.999, 0.9, device, input_dim, hid_dim, output_dim, 2, 5, False
-        ).to(device)
+        agent_name = weight_file.split("/")[2].split(".")[0]
+        # print("agent_name inside evaluate legacy model is ", agent_name)
+
+        agent_names_2ll = ["iql_2p_110", "iql_2p_111", "iql_2p_112", "iql_2p_113", "iql_2p_208", "iql_2p_210", "iql_2p_212", "iql_2p_214"]
+        ## iql_2p_110 and iql_2p_208 have 512,2, 2linear layers
+        if agent_name == "iql_2p_111" or agent_name == "iql_2p_210":
+            hid_dim = 256
+        elif agent_name == "iql_2p_112" or agent_name == "iql_2p_214":
+            hid_dim = 256
+            num_lstm_layer = 1
+        elif agent_name == "iql_2p_113" or agent_name == "iql_2p_212":
+            num_lstm_layer = 1
+
+        if agent_name in agent_names_2ll:
+            agent = r2d2_2ll.R2D2Agent(
+                False, 3, 0.999, 0.9, device, input_dim, hid_dim, output_dim, num_lstm_layer, 5, False
+            ).to(device)
+        else:
+            agent = r2d2.R2D2Agent(
+                False, 3, 0.999, 0.9, device, input_dim, hid_dim, output_dim, num_lstm_layer, 5, False
+            ).to(device)
         utils.load_weight(agent.online_net, weight_file, device)
         agents.append(agent)
 
