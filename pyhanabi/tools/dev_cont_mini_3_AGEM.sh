@@ -1,13 +1,4 @@
 #!/bin/bash
-#SBATCH --account=rrg-bengioy-ad
-#SBATCH --cpus-per-task=8
-#SBATCH --gres=gpu:2
-#SBATCH --mem=180G
-#SBATCH --time=24:00:00
-#SBATCH -o /scratch/akb/agem_zs-%j.out
-
-export PYTHONPATH=/home/akb/CMAL_Hanabi:$PYTHONPATH
-export OMP_NUM_THREADS=1
 
 EVAL_METHOD="zero_shot"
 python contplay_full_eval_AGEM.py \
@@ -15,7 +6,6 @@ python contplay_full_eval_AGEM.py \
        --method iql \
        --ll_algo AGEM \
        --use_wandb \
-       --run_wandb_offline \
        --num_thread 10 \
        --load_learnable_model ../models/iql_2p_3.pthw \
        --load_fixed_model ../models/iql_2p_1.pthw ../models/iql_2p_4.pthw ../models/iql_2p_5.pthw \
