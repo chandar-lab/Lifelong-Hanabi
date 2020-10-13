@@ -302,6 +302,7 @@ if __name__ == "__main__":
         for epoch in range(args.num_epoch):
             act_epoch_cnt += 1
             print("beginning of epoch: ", epoch)
+            cnt_angle_less = 0
             print(common_utils.get_mem_usage())
             tachometer.start()
             stat.reset()
@@ -437,7 +438,8 @@ if __name__ == "__main__":
                     ## adding A-GEM projection inequality.
                     angle = (grad_cur*grad_rep).sum()
                     if angle < 0:
-                        print("angle less than 0 ... ")
+                        # print("angle less than 0 ... ")
+                        cnt_angle_less += 1
                     # -if violated, project the gradient of the current batch onto the gradient of the replayed batch ...
                         length_rep = (grad_rep*grad_rep).sum()
                         grad_proj = grad_cur-(angle/length_rep)*grad_rep
@@ -612,6 +614,7 @@ if __name__ == "__main__":
             
                 print("model saved: %s "%(model_saved))
 
+            print("number of times angle less than 0 is ", cnt_angle_less)
             gc.collect()
             context.resume()
             print("==========")
