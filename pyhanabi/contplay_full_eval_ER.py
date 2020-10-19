@@ -404,9 +404,7 @@ if __name__ == "__main__":
 
             context.pause()
             eval_seed = (9917 + epoch * 999999) % 7777777
-            # eval_agent.load_state_dict(learnable_agent.state_dict())
             
-            # wandb.log({"epoch": epoch})
             if (epoch+1) % args.eval_freq == 0:
                 for eval_fixed_ag_idx, eval_fixed_agent in enumerate(fixed_agents + [fixed_learnable_agent]):
                     eval_runners = [
