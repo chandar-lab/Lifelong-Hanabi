@@ -26,13 +26,13 @@ class R2D2Net(torch.jit.ScriptModule):
             nn.Linear(self.hid_dim, self.hid_dim), nn.ReLU(),
             )
         
-        self.lstm = nn.LSTM(
+        self.gru = nn.GRU(
             self.hid_dim,
             self.hid_dim,
             num_layers=self.num_lstm_layer,  # , batch_first=True
         ).to(device)
 
-        self.lstm.flatten_parameters()
+        self.gru.flatten_parameters()
 
         self.fc_v = nn.Linear(self.hid_dim, 1)
         self.fc_a = nn.Linear(self.hid_dim, self.out_dim)
@@ -43,7 +43,7 @@ class R2D2Net(torch.jit.ScriptModule):
     @torch.jit.script_method
     def get_h0(self, batchsize: int) -> Dict[str, torch.Tensor]:
         shape = (self.num_lstm_layer, batchsize, self.hid_dim)
-        hid = {"h0": torch.zeros(*shape), "c0": torch.zeros(*shape)}
+        hid = {"h0": torch.zeros(*shape)}
         return hid
 
     @torch.jit.script_method
@@ -54,10 +54,10 @@ class R2D2Net(torch.jit.ScriptModule):
 
         priv_s = priv_s.unsqueeze(0)
         x = self.net(priv_s)
-        o, (h, c) = self.lstm(x, (hid["h0"], hid["c0"]))
+        o, (h) = self.gru(x, (hid["h0"]))
         a = self.fc_a(o)
         a = a.squeeze(0)
-        return a, {"h0": h, "c0": c}#, t_pred
+        return a, {"h0": h}#, t_pred
 
     @torch.jit.script_method
     def forward(
@@ -79,9 +79,9 @@ class R2D2Net(torch.jit.ScriptModule):
 
         x = self.net(priv_s)
         if len(hid) == 0:
-            o, (h, c) = self.lstm(x)
+            o, (h) = self.gru(x)
         else:
-            o, (h, c) = self.lstm(x, (hid["h0"], hid["c0"]))
+            o, (h) = self.gru(x, hid["h0"])
         a = self.fc_a(o)
         v = self.fc_v(o)
         q = self._duel(v, a, legal_move)
@@ -225,7 +225,6 @@ class R2D2Agent(torch.jit.ScriptModule):
 
         hid = {
             "h0": obs["h0"].flatten(0, 1).transpose(0, 1).contiguous(),
-            "c0": obs["c0"].flatten(0, 1).transpose(0, 1).contiguous(),
         }
 
         greedy_action, new_hid = self.greedy_act(priv_s, legal_move, hid)
@@ -252,13 +251,11 @@ class R2D2Agent(torch.jit.ScriptModule):
             self.online_net.hid_dim
         )
         h0 = new_hid["h0"].transpose(0, 1).view(*hid_shape)
-        c0 = new_hid["c0"].transpose(0, 1).view(*hid_shape)
 
         reply = {
             "a": action.detach().cpu(),
             "greedy_a": greedy_action.detach().cpu(),
             "h0": h0.contiguous().detach().cpu(),
-            "c0": c0.contiguous().detach().cpu(),
         }
         return reply
 
@@ -290,11 +287,9 @@ class R2D2Agent(torch.jit.ScriptModule):
 
         hid = {
             "h0": input_["h0"].flatten(0, 1).transpose(0, 1).contiguous(),
-            "c0": input_["c0"].flatten(0, 1).transpose(0, 1).contiguous(),
         }
         next_hid = {
             "h0": input_["next_h0"].flatten(0, 1).transpose(0, 1).contiguous(),
-            "c0": input_["next_c0"].flatten(0, 1).transpose(0, 1).contiguous(),
         }
         reward = input_["reward"].flatten(0, 1)
         bootstrap = input_["bootstrap"].flatten(0, 1)

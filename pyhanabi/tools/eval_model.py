@@ -16,6 +16,8 @@ import pandas as pd
 import torch
 import r2d2
 import r2d2_2ll
+import r2d2_gru
+import r2d2_gru_2ll
 import utils
 from eval import evaluate
 
@@ -50,7 +52,12 @@ def evaluate_legacy_model(
         agent_name = weight_file.split("/")[2].split(".")[0]
         # print("agent_name inside evaluate legacy model is ", agent_name)
 
-        agent_names_2ll = ["iql_2p_110", "iql_2p_111", "iql_2p_112", "iql_2p_113", "iql_2p_208", "iql_2p_210", "iql_2p_212", "iql_2p_214"]
+        agent_lstm_2ll = ["iql_2p_110", "iql_2p_111", "iql_2p_112", "iql_2p_113", "iql_2p_208", "iql_2p_210", "iql_2p_212", "iql_2p_214"]
+        agent_lstm_1ll = ["iql_2p_310", "iql_2p_314", "iql_2p_318"]
+        agent_gru_2ll = ["iql_2p_220", "iql_2p_224", "iql_2p_228", "iql_2p_232"]
+        agent_gru_1ll = ["iql_2p_280", "iql_2p_284", "iql_2p_288", "iql_2p_292"]
+
+        #### Below are for LSTM-variants with 2lls different seeds
         ## iql_2p_110 and iql_2p_208 have 512,2, 2linear layers
         if agent_name == "iql_2p_111" or agent_name == "iql_2p_210":
             hid_dim = 256
@@ -60,14 +67,48 @@ def evaluate_legacy_model(
         elif agent_name == "iql_2p_113" or agent_name == "iql_2p_212":
             num_lstm_layer = 1
 
-        if agent_name in agent_names_2ll:
+        ### Below are for GRU-variants
+        ## iql_2p_232 has 512, 2, 2 linear layers
+        ## iql_2p_292 has 512, 2, 1 linear layer
+        if agent_name == "iql_2p_228" or agent_name == "iql_2p_288":
+            hid_dim = 256
+        elif agent_name == "iql_2p_220" or agent_name == "iql_2p_280":
+            hid_dim = 256
+            num_lstm_layer = 1
+        elif agent_name == "iql_2p_224" or agent_name == "iql_2p_284":
+            num_lstm_layer = 1
+
+        ## Below are for LSTM-variants with 1 linear layers
+        if agent_name == "iql_2p_318":
+            hid_dim = 256
+        elif agent_name == "iql_2p_310":
+            hid_dim = 256
+            num_lstm_layer = 1
+        elif agent_name == "iql_2p_314":
+            num_lstm_layer = 1
+
+
+        if agent_name in agent_lstm_2ll:
             agent = r2d2_2ll.R2D2Agent(
+                False, 3, 0.999, 0.9, device, input_dim, hid_dim, output_dim, num_lstm_layer, 5, False
+            ).to(device)
+        elif agent_name in agent_lstm_1ll:
+            agent = r2d2.R2D2Agent(
+                False, 3, 0.999, 0.9, device, input_dim, hid_dim, output_dim, num_lstm_layer, 5, False
+            ).to(device)
+        elif agent_name in agent_gru_2ll:
+            agent = r2d2_gru_2ll.R2D2Agent(
+                False, 3, 0.999, 0.9, device, input_dim, hid_dim, output_dim, num_lstm_layer, 5, False
+            ).to(device)
+        elif agent_name in agent_gru_1ll:
+            agent = r2d2_gru.R2D2Agent(
                 False, 3, 0.999, 0.9, device, input_dim, hid_dim, output_dim, num_lstm_layer, 5, False
             ).to(device)
         else:
             agent = r2d2.R2D2Agent(
                 False, 3, 0.999, 0.9, device, input_dim, hid_dim, output_dim, num_lstm_layer, 5, False
             ).to(device)
+
         utils.load_weight(agent.online_net, weight_file, device)
         agents.append(agent)
 
