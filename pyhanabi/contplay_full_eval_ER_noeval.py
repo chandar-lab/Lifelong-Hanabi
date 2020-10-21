@@ -4,12 +4,14 @@
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
 # Tiny episodic memory implementation
+
 import time
 import os
 import sys
 import argparse
 import pprint
 import wandb
+import json
 import gc
 import numpy as np
 import torch
@@ -21,8 +23,8 @@ import common_utils
 import rela
 import r2d2
 import utils
-os.environ["WANDB_API_KEY"] = "b002db5ed8e9de3af350e301d5c25d0dcd8ea320"
-os.environ['WANDB_MODE'] = 'dryrun'
+# os.environ["WANDB_API_KEY"] = "b002db5ed8e9de3af350e301d5c25d0dcd8ea320"
+# os.environ['WANDB_MODE'] = 'dryrun'
 
 def parse_args():
     parser = argparse.ArgumentParser(description="train dqn on hanabi")
@@ -97,8 +99,11 @@ def parse_args():
     parser.add_argument("--add_agent_id", action="store_true", default=False)
 
     ## wandb experimentation settings
-    parser.add_argument("--use_wandb", action="store_true", default=False)
-    parser.add_argument("--run_wandb_offline", action="store_true", default=False)
+    # parser.add_argument("--use_wandb", action="store_true", default=False)
+    # parser.add_argument("--run_wandb_offline", action="store_true", default=False)
+
+    ## args dump settings
+    parser.add_argument("--args_dump_name", type=str, default="ER_commandline_args.txt")
 
     args = parser.parse_args()
     assert args.method in ["vdn", "iql"]
@@ -112,19 +117,27 @@ if __name__ == "__main__":
     args = parse_args()
     lr_str = args.load_learnable_model.split("/")[2].split(".")[0]
     
-    if args.use_wandb:
-        print("Using wandb for experimentation ... ")
-        # if args.run_wandb_offline:
-            # os.environ['WANDB_MODE'] = 'dryrun'
-        rb_exp_name = int(args.replay_buffer_size) // 1000
-        exp_name = lr_str+"_fixed_"+str(len(args.load_fixed_models))+"_ind_RB_"+args.eval_method+"_"+ str(rb_exp_name)+"k_"+args.ll_algo
-        wandb.init(project="ContPlay_Hanabi_complete", name=exp_name)
-        wandb.config.update(args)
+    if not os.path.exists(args.save_dir):
+        os.makedirs(args.save_dir)
+
+    rb_exp_name = int(args.replay_buffer_size) // 1000
+    args.args_dump_name = str(rb_exp_name)+"k_"+args.ll_algo+".txt"
+
+    with open(args.save_dir+"/"+args.args_dump_name, 'w') as f:
+        json.dump(args.__dict__, f, indent=2)
+
+    # if args.use_wandb:
+    #     print("Using wandb for experimentation ... ")
+    #     # if args.run_wandb_offline:
+    #         # os.environ['WANDB_MODE'] = 'dryrun'
+    #     rb_exp_name = int(args.replay_buffer_size) // 1000
+    #     exp_name = lr_str+"_fixed_"+str(len(args.load_fixed_models))+"_ind_RB_"+args.eval_method+"_"+ str(rb_exp_name)+"k_"+args.ll_algo
+    #     wandb.init(project="ContPlay_Hanabi_complete", name=exp_name)
+    #     wandb.config.update(args)
 
 
     
-    if not os.path.exists(args.save_dir):
-        os.makedirs(args.save_dir)
+
 
     logger_path = os.path.join(args.save_dir, "train.log")
     sys.stdout = common_utils.Logger(logger_path)
