@@ -4,25 +4,30 @@
 #
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
+'''
+Sample usage: 
+'''
 #
 import argparse
 import os
 import sys
 import glob
 import wandb
+import json
 
 lib_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(lib_path)
 
 import numpy as np
 import torch
-import r2d2
+import r2d2_gru_unify as r2d2_gru
+import r2d2_lstm_unify as r2d2_lstm
 import utils
 from eval import evaluate
 
 
 def evaluate_legacy_model(
-    weight_files, num_game, seed, bomb, num_run=1, verbose=True
+    weight_files, num_game, seed, bomb, learnable_agent_args, num_run=1, verbose=True
 ):
     # model_lockers = []
     # greedy_extra = 0
@@ -30,7 +35,7 @@ def evaluate_legacy_model(
     num_player = len(weight_files)
     assert num_player > 1, "1 weight file per player"
 
-    for weight_file in weight_files:
+    for i, weight_file in enumerate(weight_files):
         if verbose:
             print(
                 "evaluating: %s\n\tfor %dx%d games" % (weight_file, num_run, num_game)
@@ -47,9 +52,23 @@ def evaluate_legacy_model(
         hid_dim = 512
         output_dim = state_dict["fc_a.weight"].size()[0]
 
-        agent = r2d2.R2D2Agent(
-            False, 3, 0.999, 0.9, device, input_dim, hid_dim, output_dim, 2, 5, False
-        ).to(device)
+        if i == 0:
+            agent_args_file = learnable_agent_args['load_learnable_model'][:-4]+"txt"
+        else:
+            agent_args_file = weight_file[:-4] + "txt"
+
+        with open(agent_args_file, 'r') as f:
+            agent_args = {**json.load(f)}
+
+        if agent_args['rnn_type'] == "lstm":
+            agent = r2d2_lstm.R2D2Agent(
+                False, 3, 0.999, 0.9, device, input_dim, agent_args['rnn_hid_dim'], output_dim, agent_args['num_fflayer'], agent_args['num_rnn_layer'], 5, False
+            ).to(device)
+        elif agent_args['rnn_type'] == "gru":
+            agent = r2d2_gru.R2D2Agent(
+                False, 3, 0.999, 0.9, device, input_dim, agent_args['rnn_hid_dim'], output_dim, agent_args['num_fflayer'], agent_args['num_rnn_layer'], 5, False
+            ).to(device)
+
         utils.load_weight(agent.online_net, weight_file, device)
         agents.append(agent)
 
@@ -83,9 +102,18 @@ if __name__ == "__main__":
     parser.add_argument("--num_player", default=None, type=int, required=True)
     args = parser.parse_args()  
 
-    exp_name = "_fixed_4_ind_RB_65k_ER"
+    cont_train_args_txt = glob.glob(args.weight_1_dir+"/*.txt")
+
+    with open(cont_train_args_txt[0], 'r') as f:
+            learnable_agent_args = {**json.load(f)}
+
+
+    rb_exp_name = int(learnable_agent_args['replay_buffer_size']) // 1000
+    lr_str = learnable_agent_args['load_learnable_model'].split("/")[-1].split(".")[0]
+    exp_name = lr_str+"_fixed_"+str(len(learnable_agent_args['load_fixed_models']))+"_ind_RB_"+learnable_agent_args['eval_method']+"_"+ str(rb_exp_name)+"k_"+learnable_agent_args['ll_algo']    
+    
     wandb.init(project="ContPlay_Hanabi_complete", name=exp_name)
-    # wandb.config.update(args)
+    wandb.config.update(learnable_agent_args)
 
     print("weights_1 is ", args.weight_1_dir)
     print("weights_2 is ", args.weight_2)
@@ -111,23 +139,16 @@ if __name__ == "__main__":
         if ag1_name == "shot.pthw":
             for fixed_agent_idx in range(len(args.weight_2)):
                 weight_files = [ag1, args.weight_2[fixed_agent_idx]]
-                mean_score, sem, perfect_rate = evaluate_legacy_model(weight_files, 1000, 1, 0, num_run=1)
+                mean_score, sem, perfect_rate = evaluate_legacy_model(weight_files, 1000, 1, 0, learnable_agent_args, num_run=5)
                 wandb.log({"epoch_zeroshot_"+str(fixed_agent_idx): act_epoch_cnt, "eval_score_zeroshot_"+str(fixed_agent_idx): mean_score, "perfect_zeroshot_"+str(fixed_agent_idx): perfect_rate, "sem_zeroshot_"+str(fixed_agent_idx):sem})
         else:
             ## for different few shot evaluations ... 
-            if ag1_name == "0.pthw":
-                weight_files = [ag1, args.weight_2[0]]
-            elif ag1_name == "1.pthw":
-                weight_files = [ag1, args.weight_2[1]]
-            elif ag1_name == "2.pthw":
-                weight_files = [ag1, args.weight_2[2]]
-            elif ag1_name == "3.pthw":
-                weight_files = [ag1, args.weight_2[3]]
-            elif ag1_name == "4.pthw":
-                weight_files = [ag1, args.weight_2[4]]
+            for i in range(len(args.weight_2)):
+                if ag1_name == str(i)+".pthw":
+                    weight_files = [ag1, args.weight_2[i]]
 
             # print("weight ")
-            mean_score, sem, perfect_rate = evaluate_legacy_model(weight_files, 1000, 1, 0, num_run=1)
+            mean_score, sem, perfect_rate = evaluate_legacy_model(weight_files, 1000, 1, 0, learnable_agent_args, num_run=5)
             wandb.log({"epoch_fewshot_"+ag1_name.split(".")[0]: act_epoch_cnt, "eval_score_fewshot_"+ag1_name.split(".")[0]: mean_score, "perfect_fewshot_"+ag1_name.split(".")[0]: perfect_rate, "sem_fewshot_"+ag1_name.split(".")[0]:sem})
 
         

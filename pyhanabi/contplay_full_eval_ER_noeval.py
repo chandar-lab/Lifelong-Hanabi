@@ -10,7 +10,6 @@ import os
 import sys
 import argparse
 import pprint
-import wandb
 import json
 import gc
 import numpy as np
@@ -21,7 +20,8 @@ from create_cont import create_envs, create_threads, ActGroup
 from eval import evaluate
 import common_utils
 import rela
-import r2d2
+import r2d2_gru_unify as r2d2_gru
+import r2d2_lstm_unify as r2d2_lstm
 import utils
 # os.environ["WANDB_API_KEY"] = "b002db5ed8e9de3af350e301d5c25d0dcd8ea320"
 # os.environ['WANDB_MODE'] = 'dryrun'
@@ -29,6 +29,7 @@ import utils
 def parse_args():
     parser = argparse.ArgumentParser(description="train dqn on hanabi")
     parser.add_argument("--save_dir", type=str, default="exps/exp1")
+    parser.add_argument("--load_model_dir", type=str, default="../models/iql_2p")
     parser.add_argument("--method", type=str, default="vdn")
     parser.add_argument("--shuffle_obs", type=int, default=0)
     parser.add_argument("--shuffle_color", type=int, default=0)
@@ -98,10 +99,6 @@ def parse_args():
     parser.add_argument("--eval_method", type=str, default="zero_shot")
     parser.add_argument("--add_agent_id", action="store_true", default=False)
 
-    ## wandb experimentation settings
-    # parser.add_argument("--use_wandb", action="store_true", default=False)
-    # parser.add_argument("--run_wandb_offline", action="store_true", default=False)
-
     ## args dump settings
     parser.add_argument("--args_dump_name", type=str, default="ER_commandline_args.txt")
 
@@ -115,7 +112,6 @@ def parse_args():
 if __name__ == "__main__":
     torch.backends.cudnn.benchmark = True
     args = parse_args()
-    lr_str = args.load_learnable_model.split("/")[2].split(".")[0]
     
     if not os.path.exists(args.save_dir):
         os.makedirs(args.save_dir)
@@ -125,19 +121,6 @@ if __name__ == "__main__":
 
     with open(args.save_dir+"/"+args.args_dump_name, 'w') as f:
         json.dump(args.__dict__, f, indent=2)
-
-    # if args.use_wandb:
-    #     print("Using wandb for experimentation ... ")
-    #     # if args.run_wandb_offline:
-    #         # os.environ['WANDB_MODE'] = 'dryrun'
-    #     rb_exp_name = int(args.replay_buffer_size) // 1000
-    #     exp_name = lr_str+"_fixed_"+str(len(args.load_fixed_models))+"_ind_RB_"+args.eval_method+"_"+ str(rb_exp_name)+"k_"+args.ll_algo
-    #     wandb.init(project="ContPlay_Hanabi_complete", name=exp_name)
-    #     wandb.config.update(args)
-
-
-    
-
 
     logger_path = os.path.join(args.save_dir, "train.log")
     sys.stdout = common_utils.Logger(logger_path)
@@ -171,19 +154,40 @@ if __name__ == "__main__":
         args.shuffle_color,
     )
 ## this is the learnable agent.
-    learnable_agent = r2d2.R2D2Agent(
-        (args.method == "vdn"),
-        args.multi_step,
-        args.gamma,
-        args.eta,
-        args.train_device,
-        games[0].feature_size(),
-        args.rnn_hid_dim,
-        games[0].num_action(),
-        args.num_lstm_layer,
-        args.hand_size,
-        False,  # uniform priority
-    )
+    learnable_agent_name = args.load_learnable_model.split("/")[-1].split(".")[0]
+    with open(args.load_model_dir+"/"+learnable_agent_name+".txt") as f:
+        learnable_agent_args = {**json.load(f)}
+
+    if learnable_agent_args['rnn_type'] == "lstm":
+        learnable_agent = r2d2_lstm.R2D2Agent(
+            (args.method == "vdn"),
+            args.multi_step,
+            args.gamma,
+            args.eta,
+            args.train_device,
+            games[0].feature_size(),
+            learnable_agent_args['rnn_hid_dim'],
+            games[0].num_action(),
+            learnable_agent_args['num_fflayer'],
+            learnable_agent_args['num_rnn_layer'],
+            args.hand_size,
+            False,  # uniform priority
+        )
+    elif learnable_agent_args['rnn_type'] == "gru":
+        learnable_agent = r2d2_gru.R2D2Agent(
+            (args.method == "vdn"),
+            args.multi_step,
+            args.gamma,
+            args.eta,
+            args.train_device,
+            games[0].feature_size(),
+            learnable_agent_args['rnn_hid_dim'],
+            games[0].num_action(),
+            learnable_agent_args['num_fflayer'],
+            learnable_agent_args['num_rnn_layer'],
+            args.hand_size,
+            False,  # uniform priority
+        )
 
     learnable_agent.sync_target_with_online()
 
@@ -204,19 +208,41 @@ if __name__ == "__main__":
     episodic_memory = []
 
     for opp_idx, opp_model in enumerate(args.load_fixed_models):
-        fixed_agent = r2d2.R2D2Agent(
-            (args.method == "vdn"),
-            args.multi_step,
-            args.gamma,
-            args.eta,
-            args.train_device,
-            games[0].feature_size(),
-            args.rnn_hid_dim,
-            games[0].num_action(),
-            args.num_lstm_layer,
-            args.hand_size,
-            False,  # uniform priority
-        )
+        opp_model_name = opp_model.split("/")[-1].split(".")[0]
+
+        with open(args.load_model_dir+"/"+opp_model_name+".txt") as f:
+            opp_model_args = {**json.load(f)}
+
+        if opp_model_args['rnn_type'] == "lstm":
+            fixed_agent = r2d2_lstm.R2D2Agent(
+                (args.method == "vdn"),
+                args.multi_step,
+                args.gamma,
+                args.eta,
+                args.train_device,
+                games[0].feature_size(),
+                opp_model_args['rnn_hid_dim'],
+                games[0].num_action(),
+                opp_model_args['num_fflayer'],
+                opp_model_args['num_rnn_layer'],
+                args.hand_size,
+                False,  # uniform priority
+            )
+        elif opp_model_args['rnn_type'] == "gru":
+            fixed_agent = r2d2_gru.R2D2Agent(
+                (args.method == "vdn"),
+                args.multi_step,
+                args.gamma,
+                args.eta,
+                args.train_device,
+                games[0].feature_size(),
+                opp_model_args['rnn_hid_dim'],
+                games[0].num_action(),
+                opp_model_args['num_fflayer'],
+                opp_model_args['num_rnn_layer'],
+                args.hand_size,
+                False,  # uniform priority
+            )
         
         if opp_model:
             print("*****loading pretrained model for fixed agent *****")
