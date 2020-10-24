@@ -9,7 +9,7 @@ import os
 import sys
 import argparse
 import pprint
-import gc
+import json
 
 import numpy as np
 import torch
@@ -19,7 +19,8 @@ from create import create_envs, create_threads, ActGroup
 from eval import evaluate
 import common_utils
 import rela
-import r2d2
+import r2d2_lstm_unify as r2d2_lstm
+import r2d2_gru_unify as r2d2_gru
 import utils
 
 
@@ -47,7 +48,10 @@ def parse_args():
     parser.add_argument("--lr", type=float, default=6.25e-5, help="Learning rate")
     parser.add_argument("--eps", type=float, default=1.5e-4, help="Adam epsilon")
     parser.add_argument("--grad_clip", type=float, default=50, help="max grad norm")
-    parser.add_argument("--num_lstm_layer", type=int, default=2)
+
+    parser.add_argument("--rnn_type", type=str, default="lstm")
+    parser.add_argument("--num_fflayer", type=int, default=1)
+    parser.add_argument("--num_rnn_layer", type=int, default=2)
     parser.add_argument("--rnn_hid_dim", type=int, default=512)
 
     parser.add_argument("--train_device", type=str, default="cuda:0")
@@ -90,6 +94,9 @@ if __name__ == "__main__":
     torch.backends.cudnn.benchmark = True
     args = parse_args()
 
+    with open(args.save_dir+"/"+"iql_2p_"+str(args.seed)+".txt", 'w') as f:
+        json.dump(args.__dict__, f, indent=2)
+
     if not os.path.exists(args.save_dir):
         os.makedirs(args.save_dir)
 
@@ -125,19 +132,37 @@ if __name__ == "__main__":
         args.shuffle_color,
     )
 
-    agent = r2d2.R2D2Agent(
-        (args.method == "vdn"),
-        args.multi_step,
-        args.gamma,
-        args.eta,
-        args.train_device,
-        games[0].feature_size(),
-        args.rnn_hid_dim,
-        games[0].num_action(),
-        args.num_lstm_layer,
-        args.hand_size,
-        False,  # uniform priority
-    )
+    if args.rnn_type == "lstm":
+        agent = r2d2_lstm.R2D2Agent(
+            (args.method == "vdn"),
+            args.multi_step,
+            args.gamma,
+            args.eta,
+            args.train_device,
+            games[0].feature_size(),
+            args.rnn_hid_dim,
+            games[0].num_action(),
+            args.num_fflayer,
+            args.num_rnn_layer,
+            args.hand_size,
+            False,  # uniform priority
+        )
+    elif args.rnn_type == "gru":
+        agent = r2d2_gru.R2D2Agent(
+            (args.method == "vdn"),
+            args.multi_step,
+            args.gamma,
+            args.eta,
+            args.train_device,
+            games[0].feature_size(),
+            args.rnn_hid_dim,
+            games[0].num_action(),
+            args.num_fflayer,
+            args.num_rnn_layer,
+            args.hand_size,
+            False,  # uniform priority
+        )
+
     agent.sync_target_with_online()
 
     if args.load_model:
@@ -148,6 +173,7 @@ if __name__ == "__main__":
     agent = agent.to(args.train_device)
     optim = torch.optim.Adam(agent.online_net.parameters(), lr=args.lr, eps=args.eps)
     print(agent)
+    eval_agent = agent.clone(args.train_device, {"vdn": False})
 
     replay_buffer = rela.RNNPrioritizedReplay(
         args.replay_buffer_size,
@@ -191,12 +217,6 @@ if __name__ == "__main__":
     stat = common_utils.MultiCounter(args.save_dir)
     tachometer = utils.Tachometer()
     stopwatch = common_utils.Stopwatch()
-
-    eval_agent = agent.clone(args.train_device, {"vdn": False})
-    eval_runners = [
-        rela.BatchRunner(eval_agent, "cuda:0", 1000, ["act"])
-        for _ in range(args.num_player)
-    ]
 
     for epoch in range(args.num_epoch):
         print("beginning of epoch: ", epoch)
@@ -253,16 +273,14 @@ if __name__ == "__main__":
 
         context.pause()
         eval_seed = (9917 + epoch * 999999) % 7777777
-        for runner in eval_runners:
-            runner.update_model(agent)
+        eval_agent.load_state_dict(agent.state_dict())
         score, perfect, *_ = evaluate(
-            None,
+            [eval_agent for _ in range(args.num_player)],
             1000,
             eval_seed,
             args.eval_bomb,
             0,  # explore eps
             args.sad,
-            runners=eval_runners,
         )
         if epoch > 0 and epoch % 50 == 0:
             force_save_name = "model_epoch%d" % epoch
@@ -275,7 +293,5 @@ if __name__ == "__main__":
             "epoch %d, eval score: %.4f, perfect: %.2f, model saved: %s"
             % (epoch, score, perfect * 100, model_saved)
         )
-
-        gc.collect()
         context.resume()
         print("==========")
