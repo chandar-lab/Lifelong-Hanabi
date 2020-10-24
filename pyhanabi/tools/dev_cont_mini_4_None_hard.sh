@@ -12,7 +12,7 @@ export OMP_NUM_THREADS=1
 EVAL_METHOD="few_shot"
 LOAD_MODEL_DIR="../models/iql_2p"
 python contplay_full_eval_ER_noeval.py \
-       --save_dir /scratch/akb/iql_2p_ind_RB_${EVAL_METHOD}_ER_noeval_hard \
+       --save_dir /scratch/akb/iql_2p_ind_RB_${EVAL_METHOD}_None_noeval_hard \
        --load_model_dir ${LOAD_MODEL_DIR} \
        --method iql \
        --ll_algo None \
