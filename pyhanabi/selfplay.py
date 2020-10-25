@@ -85,6 +85,9 @@ def parse_args():
     parser.add_argument("--act_device", type=str, default="cuda:1")
     parser.add_argument("--actor_sync_freq", type=int, default=10)
 
+    ## args dump settings
+    parser.add_argument("--args_dump_name", type=str, default="iql_2p.txt")
+
     args = parser.parse_args()
     assert args.method in ["vdn", "iql"]
     return args
@@ -94,11 +97,13 @@ if __name__ == "__main__":
     torch.backends.cudnn.benchmark = True
     args = parse_args()
 
-    with open(args.save_dir+"/"+"iql_2p_"+str(args.seed)+".txt", 'w') as f:
-        json.dump(args.__dict__, f, indent=2)
-
     if not os.path.exists(args.save_dir):
         os.makedirs(args.save_dir)
+
+    args.args_dump_name = "iql_2p_"+str(args.seed)+".txt"
+    
+    with open(args.save_dir+"/"+args.args_dump_name, 'w') as f:
+        json.dump(args.__dict__, f, indent=2)
 
     logger_path = os.path.join(args.save_dir, "train.log")
     sys.stdout = common_utils.Logger(logger_path)
@@ -282,7 +287,7 @@ if __name__ == "__main__":
             0,  # explore eps
             args.sad,
         )
-        if epoch > 0 and epoch % 50 == 0:
+        if epoch > 0 and epoch % 200 == 0:
             force_save_name = "model_epoch%d" % epoch
         else:
             force_save_name = None
