@@ -6,9 +6,7 @@ import torch.nn as nn
 class EWC(nn.Module):
 	def __init__(self, args):
 		super().__init__()
-
-		self.ewc_lambda = args.ewc_lambda     #-> hyperparam: how strong to weigh EWC-loss ("regularisation strength")
-		self.gamma = args.gamma         #-> hyperparam (online EWC): decay-term for old tasks' contribution to quadratic term
+		self.ewc_gamma = args.ewc_gamma         #-> hyperparam (online EWC): decay-term for old tasks' contribution to quadratic term
 		self.online = args.online      #-> "online" (=single quadratic term) or "offline" (=quadratic term per task) EWC
 		self.batchsize = args.batchsize
 		self.pred_weight = args.pred_weight
