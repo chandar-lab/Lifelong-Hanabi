@@ -103,7 +103,7 @@ def parse_args():
 
     args = parser.parse_args()
     assert args.method in ["vdn", "iql"]
-    assert args.ll_algo in ["ER", "AGEM", "None"]
+    assert args.ll_algo in ["ER", "AGEM", "EWC", "None"]
     assert args.eval_method in ["zero_shot", "few_shot"]
     return args
 
@@ -508,7 +508,7 @@ if __name__ == "__main__":
                         eval_optim = torch.optim.Adam(few_shot_learnable_agent.online_net.parameters(), lr=args.lr,
                                                       eps=args.eps)
                         eval_replay_buffer = rela.RNNPrioritizedReplay(
-                            args.replay_buffer_size,
+                            args.eval_replay_buffer_size,
                             eval_seed,
                             args.priority_exponent,
                             args.priority_weight,
