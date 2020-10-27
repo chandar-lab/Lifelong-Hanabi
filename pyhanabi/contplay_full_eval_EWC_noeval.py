@@ -326,7 +326,7 @@ if __name__ == "__main__":
 
         for epoch in range(args.num_epoch):
             act_epoch_cnt += 1
-            print("beginning of epoch: ", epoch)
+            print("beginning of epoch: ", act_epoch_cnt)
             print(common_utils.get_mem_usage())
             tachometer.start()
             stat.reset()
@@ -388,7 +388,7 @@ if __name__ == "__main__":
                 stat["grad_norm"].feed(g_norm.detach().item())
 
             count_factor = args.num_player if args.method == "vdn" else 1
-            print("EPOCH: %d" % epoch)
+            print("EPOCH: %d" % act_epoch_cnt)
             tachometer.lap(
                 act_group.actors, replay_buffer, args.epoch_len * args.batchsize, count_factor
             )
@@ -408,7 +408,7 @@ if __name__ == "__main__":
                         eval_optim = torch.optim.Adam(few_shot_learnable_agent.online_net.parameters(), lr=args.lr,
                                                       eps=args.eps)
                         eval_replay_buffer = rela.RNNPrioritizedReplay(
-                            args.replay_buffer_size,
+                            args.eval_replay_buffer_size,
                             eval_seed,
                             args.priority_exponent,
                             args.priority_weight,
