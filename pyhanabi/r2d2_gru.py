@@ -11,23 +11,29 @@ import common_utils
 
 
 class R2D2Net(torch.jit.ScriptModule):
-    __constants__ = ["hid_dim", "out_dim", "num_lstm_layer", "hand_size"]
+    __constants__ = ["hid_dim", "out_dim", "num_fflayer", "num_rnn_layer", "hand_size", "dropout_p"]
 
-    def __init__(self, device, in_dim, hid_dim, out_dim, num_lstm_layer, hand_size):
+    def __init__(self, device, in_dim, hid_dim, out_dim, num_fflayer, num_rnn_layer, hand_size, dropout_p):
         super().__init__()
         self.in_dim = in_dim
         self.hid_dim = hid_dim
         self.out_dim = out_dim
-        self.num_ff_layer = 1
-        self.num_lstm_layer = num_lstm_layer
+        self.num_fflayer = num_fflayer
+        self.num_rnn_layer = num_rnn_layer
         self.hand_size = hand_size
+        self.dropout_p = dropout_p
 
-        self.net = nn.Sequential(nn.Linear(self.in_dim, self.hid_dim), nn.ReLU())
+        layers = [nn.Linear(self.in_dim, self.hid_dim), nn.ReLU(), nn.Dropout(self.dropout_p)]
+        for i in range(1, self.num_fflayer):
+            layers += [nn.Linear(self.hid_dim, self.hid_dim), nn.ReLU(), nn.Dropout(self.dropout_p)]
         
+        self.net = nn.Sequential(*layers)    
+
         self.gru = nn.GRU(
             self.hid_dim,
             self.hid_dim,
-            num_layers=self.num_lstm_layer,  # , batch_first=True
+            num_layers=self.num_rnn_layer,  # , batch_first=True
+            dropout=self.dropout_p,
         ).to(device)
 
         self.gru.flatten_parameters()
@@ -40,7 +46,7 @@ class R2D2Net(torch.jit.ScriptModule):
 
     @torch.jit.script_method
     def get_h0(self, batchsize: int) -> Dict[str, torch.Tensor]:
-        shape = (self.num_lstm_layer, batchsize, self.hid_dim)
+        shape = (self.num_rnn_layer, batchsize, self.hid_dim)
         hid = {"h0": torch.zeros(*shape)}
         return hid
 
@@ -146,16 +152,18 @@ class R2D2Agent(torch.jit.ScriptModule):
         in_dim,
         hid_dim,
         out_dim,
-        num_lstm_layer,
+        num_fflayer,
+        num_rnn_layer,
         hand_size,
+        dropout_p,
         uniform_priority,
     ):
         super().__init__()
         self.online_net = R2D2Net(
-            device, in_dim, hid_dim, out_dim, num_lstm_layer, hand_size
+            device, in_dim, hid_dim, out_dim, num_fflayer, num_rnn_layer, hand_size, dropout_p
         ).to(device)
         self.target_net = R2D2Net(
-            device, in_dim, hid_dim, out_dim, num_lstm_layer, hand_size
+            device, in_dim, hid_dim, out_dim, num_fflayer, num_rnn_layer, hand_size, dropout_p
         ).to(device)
         self.vdn = vdn
         self.multi_step = multi_step
@@ -179,8 +187,10 @@ class R2D2Agent(torch.jit.ScriptModule):
             self.online_net.in_dim,
             self.online_net.hid_dim,
             self.online_net.out_dim,
-            self.online_net.num_lstm_layer,
+            self.online_net.num_fflayer,
+            self.online_net.num_rnn_layer,
             self.online_net.hand_size,
+            self.online_net.dropout_p,
             self.uniform_priority
         )
         cloned.load_state_dict(self.state_dict())
@@ -245,7 +255,7 @@ class R2D2Agent(torch.jit.ScriptModule):
         hid_shape = (
             obsize,
             ibsize * num_player,
-            self.online_net.num_lstm_layer,
+            self.online_net.num_rnn_layer,
             self.online_net.hid_dim
         )
         h0 = new_hid["h0"].transpose(0, 1).view(*hid_shape)
