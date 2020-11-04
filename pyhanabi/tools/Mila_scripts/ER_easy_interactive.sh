@@ -2,12 +2,13 @@
 ## specify optim_name to be either Adam or SGD.
 ## specify --decay_lr for learning rate decay.
 ## dropout_p should be 0 for no dropout. dropout_p is drop probability.
+USER="akb"
 EVAL_METHOD="few_shot"
 LOAD_MODEL_DIR="../models/iql_2p"
 INITIAL_LR=0.02
 BATCH_SIZE=128
-python contplay_full_eval_ER_noeval.py \
-       --save_dir /network/tmp1/badrinaa/hanabi_sad_models/exps/iql_2p_ind_RB_${EVAL_METHOD}_ER_noeval_easy \
+python cont_ER.py \
+       --save_dir /miniscratch/${USER}/cont_hanabi_models/exps/iql_2p_ind_RB_${EVAL_METHOD}_ER_noeval_easy \
        --load_model_dir ${LOAD_MODEL_DIR} \
        --method iql \
        --ll_algo ER \
@@ -33,7 +34,7 @@ python contplay_full_eval_ER_noeval.py \
        --burn_in_frames 10000 \
        --eval_burn_in_frames 1000 \
        --replay_buffer_size 32768 \
-       --eval_replay_buffer_size 32768 \
+       --eval_replay_buffer_size 10000 \
        --epoch_len 200 \
        --priority_exponent 0.9 \
        --priority_weight 0.6 \

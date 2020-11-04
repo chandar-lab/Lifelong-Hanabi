@@ -2,14 +2,14 @@
 #SBATCH --account=rrg-bengioy-ad
 #SBATCH --cpus-per-task=8
 #SBATCH --gres=gpu:3
-#SBATCH --mem=125G
+#SBATCH --mem=150G
 #SBATCH --time=48:00:00
 #SBATCH -o /scratch/akb/agem_easy_noeval-%j.out
 
 USER="akb"
 EVAL_METHOD="few_shot"
 LOAD_MODEL_DIR="../models/iql_2p"
-python contplay_full_eval_AGEM_noeval.py \
+python cont_AGEM.py \
        --save_dir /scratch/${USER}/iql_2p_ind_RB_${EVAL_METHOD}_AGEM_noeval_easy \
        --load_model_dir ${LOAD_MODEL_DIR} \
        --method iql \
@@ -32,7 +32,7 @@ python contplay_full_eval_AGEM_noeval.py \
        --burn_in_frames 10000 \
        --eval_burn_in_frames 1000 \
        --replay_buffer_size 32768 \
-       --eval_replay_buffer_size 32768 \
+       --eval_replay_buffer_size 10000 \
        --epoch_len 200 \
        --priority_exponent 0.9 \
        --priority_weight 0.6 \

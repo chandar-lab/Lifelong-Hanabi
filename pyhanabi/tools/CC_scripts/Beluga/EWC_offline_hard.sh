@@ -4,13 +4,13 @@
 #SBATCH --gres=gpu:3
 #SBATCH --mem=180G
 #SBATCH --time=72:00:00
-#SBATCH -o /scratch/akb/ewc_online_hard_noeval-%j.out
+#SBATCH -o /scratch/akb/ewc_offline_hard_noeval-%j.out
 
 USER="akb"
 EVAL_METHOD="few_shot"
 LOAD_MODEL_DIR="../models/iql_2p"
-python contplay_full_eval_EWC_noeval.py \
-       --save_dir /scratch/${USER}/iql_2p_ind_RB_${EVAL_METHOD}_EWC_online_noeval_hard \
+python cont_EWC.py \
+       --save_dir /scratch/${USER}/iql_2p_ind_RB_${EVAL_METHOD}_EWC_offline_noeval_hard \
        --load_model_dir ${LOAD_MODEL_DIR} \
        --method iql \
        --ll_algo EWC \
@@ -29,14 +29,14 @@ python contplay_full_eval_EWC_noeval.py \
        --grad_clip 5 \
        --gamma 0.999 \
        --seed 1 \
-       --online 1 \
+       --online 0 \
        --ewc_lambda 5000 \
        --ewc_gamma 1 \
        --batchsize 128 \
        --burn_in_frames 10000 \
        --eval_burn_in_frames 1000 \
        --replay_buffer_size 32768 \
-       --eval_replay_buffer_size 32768 \
+       --eval_replay_buffer_size 10000 \
        --epoch_len 200 \
        --priority_exponent 0.9 \
        --priority_weight 0.6 \

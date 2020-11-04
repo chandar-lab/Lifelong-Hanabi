@@ -15,7 +15,7 @@ EVAL_METHOD="few_shot"
 LOAD_MODEL_DIR="../models/iql_2p"
 INITIAL_LR=0.02
 BATCH_SIZE=128
-python contplay_full_eval_ER_noeval.py \
+python cont_ER.py \
        --save_dir /scratch/${USER}/iql_2p_ind_RB_${EVAL_METHOD}_ER_noeval_hard \
        --load_model_dir ${LOAD_MODEL_DIR} \
        --method iql \
@@ -43,7 +43,7 @@ python contplay_full_eval_ER_noeval.py \
        --burn_in_frames 10000 \
        --eval_burn_in_frames 1000 \
        --replay_buffer_size 32768 \
-       --eval_replay_buffer_size 32768 \
+       --eval_replay_buffer_size 10000 \
        --epoch_len 200 \
        --priority_exponent 0.9 \
        --priority_weight 0.6 \
