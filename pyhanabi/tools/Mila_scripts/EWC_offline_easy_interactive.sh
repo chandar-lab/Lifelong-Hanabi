@@ -3,7 +3,7 @@ USER="akb"
 EVAL_METHOD="few_shot"
 LOAD_MODEL_DIR="../models/iql_2p"
 python cont_EWC.py \
-       --save_dir /miniscratch/${USER}/cont_hanabi_models/exps/iql_2p_ind_RB_${EVAL_METHOD}_EWC_offline_noeval_easy \
+       --save_dir /miniscratch/${USER}/cont_hanabi_models/exps/ind_RB_${EVAL_METHOD}_EWC_offline_noeval_easy \
        --load_model_dir ${LOAD_MODEL_DIR} \
        --method iql \
        --ll_algo EWC \

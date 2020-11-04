@@ -10,7 +10,7 @@ USER="akb"
 EVAL_METHOD="few_shot"
 LOAD_MODEL_DIR="../models/iql_2p"
 python cont_ER.py \
-       --save_dir /scratch/${USER}/iql_2p_ind_RB_${EVAL_METHOD}_None_noeval_hard \
+       --save_dir /scratch/${USER}/ind_RB_${EVAL_METHOD}_None_noeval_hard \
        --load_model_dir ${LOAD_MODEL_DIR} \
        --method iql \
        --ll_algo None \
