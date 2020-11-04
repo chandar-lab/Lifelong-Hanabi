@@ -1,10 +1,3 @@
-# Copyright (c) Facebook, Inc. and its affiliates.
-# All rights reserved.
-#
-# This source code is licensed under the license found in the
-# LICENSE file in the root directory of this source tree.
-# Tiny episodic memory implementation
-
 import time
 import os
 import sys
@@ -84,6 +77,8 @@ def parse_args():
     # thread setting
     parser.add_argument("--num_thread", type=int, default=40, help="#thread_loop")
     parser.add_argument("--num_game_per_thread", type=int, default=20)
+    parser.add_argument("--eval_num_thread", type=int, default=40, help="#thread_loop")
+    parser.add_argument("--eval_num_game_per_thread", type=int, default=20)
 
     # actor setting
     parser.add_argument("--act_base_eps", type=float, default=0.4)
@@ -95,12 +90,12 @@ def parse_args():
 
 
     # life long learning settings
-    parser.add_argument("--ll_algo", type=str, default="ER")
+    parser.add_argument("--ll_algo", type=str, default="AGEM")
     parser.add_argument("--eval_method", type=str, default="zero_shot")
     parser.add_argument("--add_agent_id", action="store_true", default=False)
 
     ## args dump settings
-    parser.add_argument("--args_dump_name", type=str, default="ER_commandline_args.txt")
+    parser.add_argument("--args_dump_name", type=str, default="AGEM_commandline_args.txt")
 
     args = parser.parse_args()
     assert args.method in ["vdn", "iql"]
@@ -121,6 +116,7 @@ if __name__ == "__main__":
 
     with open(args.save_dir+"/"+args.args_dump_name, 'w') as f:
         json.dump(args.__dict__, f, indent=2)
+
 
     logger_path = os.path.join(args.save_dir, "train.log")
     sys.stdout = common_utils.Logger(logger_path)
@@ -157,6 +153,8 @@ if __name__ == "__main__":
     learnable_agent_name = args.load_learnable_model.split("/")[-1].split(".")[0]
     with open(args.load_model_dir+"/"+learnable_agent_name+".txt") as f:
         learnable_agent_args = {**json.load(f)}
+    
+    print("learnable agent args is ", learnable_agent_args)
 
     if learnable_agent_args['rnn_type'] == "lstm":
         learnable_agent = r2d2_lstm.R2D2Agent(
@@ -316,6 +314,7 @@ if __name__ == "__main__":
         for epoch in range(args.num_epoch):
             act_epoch_cnt += 1
             print("beginning of epoch: ", act_epoch_cnt)
+            cnt_angle_less = 0
             print(common_utils.get_mem_usage())
             tachometer.start()
             stat.reset()
@@ -332,12 +331,15 @@ if __name__ == "__main__":
                 stopwatch.time("sync and updating")
 
                 batch, weight = replay_buffer.sample(args.batchsize, args.train_device)
+
                 # Looping over the replay buffers of previous tasks.
                 ## TODO: Figure out what happens to batch.h0 -- why is it empty? should it be concat?
                 ## TODO: If possible, fix the actual C++ thing where batch size is interfaced so that .sample would return desired number of samples.
-                if args.ll_algo == "ER":
+                if args.ll_algo == "AGEM":
                     prev_tasks_b = []
                     prev_tasks_w = []
+                    batch_obs = {}
+                    batch_act = {}
 
                     for prev_task_idx in range(len(episodic_memory)):
                         samples_per_task = (args.batchsize // len(episodic_memory))
@@ -347,32 +349,52 @@ if __name__ == "__main__":
                         b, w = episodic_memory[prev_task_idx].sample(args.batchsize, args.train_device)
                         prev_tasks_b.append(b)
                         prev_tasks_w.append(w)
-                        batch_obs = {}
-                        batch_act = {}
-                        for k in batch.obs.keys():
-                            if k == "eps":
-                                batch_obs[k] = torch.cat([batch.obs[k], b.obs[k][:, :samples_per_task]], dim=1)
-                            else:
-                                batch_obs[k] = torch.cat([batch.obs[k], b.obs[k][:, :samples_per_task, :]], dim=1)
 
-                        batch.obs = batch_obs
+                        if prev_task_idx == 0:
+                            for k in b.obs.keys():
+                                if k == "eps":
+                                    batch_obs[k] = b.obs[k][:, :samples_per_task]
+                                else:
+                                    batch_obs[k] = b.obs[k][:, :samples_per_task, :]
+                        elif prev_task_idx > 0:
+                            for k in b.obs.keys():
+                                if k == "eps":
+                                    batch_obs[k] = torch.cat([batch_obs[k], b.obs[k][:, :samples_per_task]], dim=1)
+                                else:
+                                    batch_obs[k] = torch.cat([batch_obs[k], b.obs[k][:, :samples_per_task, :]], dim=1)
 
-                        for k in batch.action.keys():
-                            batch_act[k] = torch.cat([batch.action[k], b.action[k][:, :samples_per_task]], dim=1)
+                        if prev_task_idx == 0:
+                            for k in b.action.keys():
+                                batch_act[k] = b.action[k][:, :samples_per_task]
+                        elif prev_task_idx > 0:
+                            for k in b.action.keys():
+                                batch_act[k] = torch.cat([batch_act[k], b.action[k][:, :samples_per_task]], dim=1)
 
-                        batch.action = batch_act
+                        if prev_task_idx == 0:
+                            batch_reward = b.reward[:, :samples_per_task]
+                            batch_terminal = b.terminal[:, :samples_per_task]
+                            batch_bootstrap = b.bootstrap[:, :samples_per_task]
+                            batch_seq_len = b.seq_len[:samples_per_task]
+                            batch_weight = w[:samples_per_task]
+                        elif prev_task_idx > 0:
+                            batch_reward = torch.cat([batch_reward, b.reward[:, :samples_per_task]], dim=1)
+                            batch_terminal = torch.cat([batch_terminal, b.terminal[:, :samples_per_task]], dim=1)
+                            batch_bootstrap = torch.cat([batch_bootstrap, b.bootstrap[:, :samples_per_task]], dim=1)
+                            batch_seq_len = torch.cat([batch_seq_len, b.seq_len[:samples_per_task]], dim=0)
+                            batch_weight = torch.cat([batch_weight, w[:samples_per_task]], dim=0)
 
-                        batch.reward = torch.cat([batch.reward, b.reward[:, :samples_per_task]], dim=1)
-                        batch.terminal = torch.cat([batch.terminal, b.terminal[:, :samples_per_task]], dim=1)
-                        batch.bootstrap = torch.cat([batch.bootstrap, b.bootstrap[:, :samples_per_task]], dim=1)
+                        if prev_task_idx == len(episodic_memory)-1:
+                            b.obs = batch_obs
+                            b.action = batch_act
+                            b.reward = batch_reward
+                            b.terminal = batch_terminal
+                            b.bootstrap = batch_bootstrap
+                            b.seq_len = batch_seq_len
 
-                        batch.seq_len = torch.cat([batch.seq_len, b.seq_len[:samples_per_task]], dim=0)
-                        weight = torch.cat([weight, w[:samples_per_task]], dim=0)
+                            w = batch_weight   
 
                     stopwatch.time("sample data")
-
-                    ## TODO: find a better solution instead of this hack slicing priority.
-                    ## pseudo loss/priority computation for updating priority
+                    ## TODO: find a better solution instead of this hack of slicing priority
                     for prev_task_idx in range(len(episodic_memory)):
                         _, p = learnable_agent.loss(prev_tasks_b[prev_task_idx], args.pred_weight, stat)
                         p = rela.aggregate_priority(
@@ -380,14 +402,67 @@ if __name__ == "__main__":
                         )
                         episodic_memory[prev_task_idx].update_priority(p)
 
-                loss, priority = learnable_agent.loss(batch, args.pred_weight, stat)
+                ## previous tasks average loss
+                if task_idx > 0:
+                    loss_replay, _ = learnable_agent.loss(b, args.pred_weight, stat)
+                    loss_replay = (loss_replay * w).mean()
+                    loss_replay.backward()
+
+                    ## reorganize the gradient of replayed batch as a single vector
+                    grad_rep = []
+                    for p in learnable_agent.online_net.parameters():
+                        if p.requires_grad:
+                            if p.grad is not None:
+                                grad_rep.append(p.grad.view(-1))
+                    grad_rep = torch.cat(grad_rep)
+                    ## reset gradients (with A-GEM the gradients of replayed batch should only be used as inequality constraints)
+                    optim.zero_grad()
+
+
+                ## current task loss
+                loss_cur, priority = learnable_agent.loss(batch, args.pred_weight, stat)
 
                 priority = rela.aggregate_priority(
                     priority.cpu(), batch.seq_len.cpu(), args.eta
                 )
 
-                loss = (loss * weight).mean()
-                loss.backward()
+                # print("weight sum before calculating loss cur is ", weight.sum())
+                loss_cur = (loss_cur * weight).mean()
+                loss_cur.backward()
+
+                
+                # total_learnable_parameters = sum(p.numel() for p in learnable_agent.online_net.parameters() if p.requires_grad)
+                # print("total learnable parameters ", total_learnable_parameters)
+                # print("Length of p is  ", len(list(learnable_agent.online_net.parameters())))
+
+                if task_idx > 0:
+                    ## reorganize the gradient of the current batch as a single vector
+                    grad_cur = []
+                    for i,p in enumerate(list(learnable_agent.online_net.parameters())):
+                        if p.requires_grad:
+                            if p.grad is not None:
+                                grad_cur.append(p.grad.view(-1))
+                    grad_cur = torch.cat(grad_cur)
+
+                    # print("grad rep size is ", grad_rep.size())
+                    # print("grad cur size is ", grad_cur.size())
+
+                    ## adding A-GEM projection inequality.
+                    angle = (grad_cur*grad_rep).sum()
+                    if angle < 0:
+                        #print("angle less than 0 ... ")
+                        cnt_angle_less += 1
+                    # -if violated, project the gradient of the current batch onto the gradient of the replayed batch ...
+                        length_rep = (grad_rep*grad_rep).sum()
+                        grad_proj = grad_cur-(angle/length_rep)*grad_rep
+                        # -...and replace all the gradients within the model with this projected gradient
+                        index = 0
+                        for p in learnable_agent.online_net.parameters():
+                            if p.requires_grad:
+                                if p.grad is not None:
+                                    n_param = p.numel()  # number of parameters in [p]
+                                    p.grad.copy_(grad_proj[index:index+n_param].view_as(p))
+                                    index += n_param
 
                 torch.cuda.synchronize()
                 stopwatch.time("forward & backward")
@@ -405,7 +480,7 @@ if __name__ == "__main__":
                 replay_buffer.update_priority(priority[:args.batchsize])
                 stopwatch.time("updating priority")
 
-                stat["loss"].feed(loss.detach().item())
+                stat["loss"].feed(loss_cur.detach().item())
                 stat["grad_norm"].feed(g_norm.detach().item())
 
             count_factor = args.num_player if args.method == "vdn" else 1
@@ -418,7 +493,7 @@ if __name__ == "__main__":
 
             context.pause()
             eval_seed = (9917 + epoch * 999999) % 7777777
-
+            
             if (epoch+1) % args.eval_freq == 0:
                 for eval_fixed_ag_idx, eval_fixed_agent in enumerate(fixed_agents + [fixed_learnable_agent]):
                     print("evaluating learnable agent with fixed agent %d "%eval_fixed_ag_idx)
@@ -437,7 +512,7 @@ if __name__ == "__main__":
                         )
 
                         eval_games = create_envs(
-                            args.num_thread * args.num_game_per_thread,
+                            args.eval_num_thread * args.eval_num_game_per_thread,
                             eval_seed,
                             args.num_player,
                             args.hand_size,
@@ -453,8 +528,8 @@ if __name__ == "__main__":
                             args.method,
                             args.act_device,
                             [few_shot_learnable_agent, eval_fixed_agent],
-                            args.num_thread,
-                            args.num_game_per_thread,
+                            args.eval_num_thread,
+                            args.eval_num_game_per_thread,
                             args.multi_step,
                             args.gamma,
                             args.eta,
@@ -463,7 +538,7 @@ if __name__ == "__main__":
                             eval_replay_buffer,
                         )
                         eval_context, eval_threads = create_threads(
-                            args.num_thread, args.num_game_per_thread, eval_act_group.actors, eval_games,
+                            args.eval_num_thread, args.eval_num_game_per_thread, eval_act_group.actors, eval_games,
                         )
                         eval_act_group.start()
                         eval_context.start()
@@ -522,6 +597,7 @@ if __name__ == "__main__":
                 zero_shot_model_saved = saver.save(None, learnable_agent.online_net.state_dict(), force_save_name=zs_force_save_name)
                 print("zero shot model saved: %s "%(zero_shot_model_saved))
 
+            print("number of times angle less than 0 is ", cnt_angle_less)
             gc.collect()
             context.resume()
             print("==========")

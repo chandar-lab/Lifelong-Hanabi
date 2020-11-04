@@ -54,7 +54,7 @@ class EWC(nn.Module):
 
 
 	def compute_ewc_loss(self, learnable_agent, task_idx):
-		print("computing ewc_loss")
+		# print("computing ewc_loss")
 		if task_idx>0:
 			losses = []
 	# If "offline EWC", loop over all previous tasks (if "online EWC", [EWC_task_count]=1 so only 1 iteration)
@@ -71,6 +71,7 @@ class EWC(nn.Module):
 						# print("mean for task ", task, " and named parameter ", n, " is ", mean)
 						# print("fisher for task ", task, " and named parameter ", n," is ", fisher)
 
+						# print("diff p - mean sum is ", ((p-mean)**2).sum())
 						# Calculate EWC-loss
 						losses.append((fisher * (p-mean)**2).sum())
 				# Sum EWC-loss from all parameters (and from all tasks, if "offline EWC")

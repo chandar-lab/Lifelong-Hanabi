@@ -1,10 +1,3 @@
-# Copyright (c) Facebook, Inc. and its affiliates.
-# All rights reserved.
-#
-# This source code is licensed under the license found in the
-# LICENSE file in the root directory of this source tree.
-# Tiny episodic memory implementation
-
 import time
 import os
 import sys
@@ -86,6 +79,8 @@ def parse_args():
     # thread setting
     parser.add_argument("--num_thread", type=int, default=40, help="#thread_loop")
     parser.add_argument("--num_game_per_thread", type=int, default=20)
+    parser.add_argument("--eval_num_thread", type=int, default=40, help="#eval_thread_loop")
+    parser.add_argument("--eval_num_game_per_thread", type=int, default=20)
 
     # actor setting
     parser.add_argument("--act_base_eps", type=float, default=0.4)
@@ -358,10 +353,10 @@ if __name__ == "__main__":
 
                     ewc_loss = ewc_class.compute_ewc_loss(learnable_agent, task_idx)
                     
-                    print("task idx is ", task_idx)
-                    print("orig loss is ", loss)
-                    print("EWC loss is ", args.ewc_lambda*ewc_loss)
-                    print("\n")
+                    #print("task idx is ", task_idx)
+                    #print("orig loss is ", loss)
+                    #print("EWC loss is ", args.ewc_lambda*ewc_loss)
+                    #print("\n")
                     loss += args.ewc_lambda * ewc_loss
 
 
@@ -416,7 +411,7 @@ if __name__ == "__main__":
                         )
 
                         eval_games = create_envs(
-                            args.num_thread * args.num_game_per_thread,
+                            args.eval_num_thread * args.eval_num_game_per_thread,
                             eval_seed,
                             args.num_player,
                             args.hand_size,
@@ -432,8 +427,8 @@ if __name__ == "__main__":
                             args.method,
                             args.act_device,
                             [few_shot_learnable_agent, eval_fixed_agent],
-                            args.num_thread,
-                            args.num_game_per_thread,
+                            args.eval_num_thread,
+                            args.eval_num_game_per_thread,
                             args.multi_step,
                             args.gamma,
                             args.eta,
@@ -442,7 +437,7 @@ if __name__ == "__main__":
                             eval_replay_buffer,
                         )
                         eval_context, eval_threads = create_threads(
-                            args.num_thread, args.num_game_per_thread, eval_act_group.actors, eval_games,
+                            args.eval_num_thread, args.eval_num_game_per_thread, eval_act_group.actors, eval_games,
                         )
                         eval_act_group.start()
                         eval_context.start()

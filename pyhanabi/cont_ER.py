@@ -1,8 +1,3 @@
-# Copyright (c) Facebook, Inc. and its affiliates.
-# All rights reserved.
-#
-# This source code is licensed under the license found in the
-# LICENSE file in the root directory of this source tree.
 # Tiny episodic memory implementation
 
 import time
@@ -52,7 +47,9 @@ def parse_args():
     parser.add_argument("--initial_lr", type=float, default=0.1, help="Initial learning rate")
     parser.add_argument("--final_lr", type=float, default=6.25e-5, help="Final learning rate")
     parser.add_argument("--lr_gamma", type=float, default=0.2, help="lr decay")
-    parser.add_argument("--dropout_p", type=float, default=0.25, help="drop probability")
+    parser.add_argument("--decay_lr", action="store_true", default=False)
+    parser.add_argument("--dropout_p", type=float, default=0, help="drop probability")
+    parser.add_argument("--optim_name", type=str, default="Adam")
     parser.add_argument("--eps", type=float, default=1.5e-4, help="Adam epsilon")
     parser.add_argument("--sgd_momentum", type=float, default=0.8, help="SGD momentum")
     parser.add_argument("--grad_clip", type=float, default=50, help="max grad norm")
@@ -88,6 +85,8 @@ def parse_args():
     # thread setting
     parser.add_argument("--num_thread", type=int, default=40, help="#thread_loop")
     parser.add_argument("--num_game_per_thread", type=int, default=20)
+    parser.add_argument("--eval_num_thread", type=int, default=40, help="#eval_thread_loop")
+    parser.add_argument("--eval_num_game_per_thread", type=int, default=20)
 
     # actor setting
     parser.add_argument("--act_base_eps", type=float, default=0.4)
@@ -264,8 +263,15 @@ if __name__ == "__main__":
     for task_idx, fixed_agent in enumerate(fixed_agents):
         ## TODO: Exp decision : do we want different replay buffer when playing with diff opponents
         ## i.e do we want to replay prev experiences? 
-        lr = max(args.initial_lr * args.lr_gamma**(task_idx), args.final_lr)
-        optim = torch.optim.SGD(learnable_agent.online_net.parameters(), lr=lr, momentum=args.sgd_momentum)
+        if args.decay_lr:
+            lr = max(args.initial_lr * args.lr_gamma**(task_idx), args.final_lr)
+        else:
+            lr = args.final_lr
+
+        if args.optim_name == "Adam":
+            optim = torch.optim.Adam(learnable_agent.online_net.parameters(), lr=lr, eps=args.eps)
+        elif args.optim_name == "SGD":
+            optim = torch.optim.SGD(learnable_agent.online_net.parameters(), lr=lr, momentum=args.sgd_momentum)
 
         replay_buffer = rela.RNNPrioritizedReplay(
             args.replay_buffer_size,
@@ -436,8 +442,13 @@ if __name__ == "__main__":
                     if args.eval_method == 'few_shot':
                         print("Few Shot Learning ...")
                         few_shot_learnable_agent = learnable_agent.clone(args.train_device, {"vdn": False})
-                        eval_optim = torch.optim.SGD(few_shot_learnable_agent.online_net.parameters(), lr=args.final_lr,
+                        if args.optim_name == "Adam":
+                            eval_optim = torch.optim.Adam(few_shot_learnable_agent.online_net.parameters(), lr=args.final_lr,
+                                                      eps=args.eps)
+                        elif args.optim_name == "SGD":
+                            eval_optim = torch.optim.SGD(few_shot_learnable_agent.online_net.parameters(), lr=args.final_lr,
                                                       momentum=args.sgd_momentum)
+
                         eval_replay_buffer = rela.RNNPrioritizedReplay(
                             args.eval_replay_buffer_size,
                             eval_seed,
@@ -447,7 +458,7 @@ if __name__ == "__main__":
                         )
 
                         eval_games = create_envs(
-                            args.num_thread * args.num_game_per_thread,
+                            args.eval_num_thread * args.eval_num_game_per_thread,
                             eval_seed,
                             args.num_player,
                             args.hand_size,
@@ -463,8 +474,8 @@ if __name__ == "__main__":
                             args.method,
                             args.act_device,
                             [few_shot_learnable_agent, eval_fixed_agent],
-                            args.num_thread,
-                            args.num_game_per_thread,
+                            args.eval_num_thread,
+                            args.eval_num_game_per_thread,
                             args.multi_step,
                             args.gamma,
                             args.eta,
@@ -473,7 +484,7 @@ if __name__ == "__main__":
                             eval_replay_buffer,
                         )
                         eval_context, eval_threads = create_threads(
-                            args.num_thread, args.num_game_per_thread, eval_act_group.actors, eval_games,
+                            args.eval_num_thread, args.eval_num_game_per_thread, eval_act_group.actors, eval_games,
                         )
                         eval_act_group.start()
                         eval_context.start()
