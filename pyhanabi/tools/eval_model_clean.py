@@ -1,5 +1,9 @@
 '''
+This can be run in both Mila and CC clusters as it doesn't require wandb and dumps .csv as output.
+Requires only 1 GPU.
 Sample usage: 
+python tools/eval_model_clean.py --weight_1_dir ../models/iql_2p --num_player 2
+
 '''
 import argparse
 import os

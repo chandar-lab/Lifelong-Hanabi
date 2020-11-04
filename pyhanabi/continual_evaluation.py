@@ -1,5 +1,12 @@
-''' evaluating all the checkpoints saved periodically: args.eval_freq
+''' Evaluating all the checkpoints saved periodically during train args.eval_freq
+Usually done only in Mila cluster as we need wandb to log.
+Requires only 1 GPU.
 Sample usage: 
+python continual_evaluation.py 
+--weight_1_dir /miniscratch/akb/cont_hanabi_models/exps/ind_RB_few_shot_ER_noeval_easy 
+--weight_2 ../models/iql_2p/iql_2p_6.pthw ../models/iql_2p/iql_2p_11.pthw ../models/iql_2p/iql_2p_113.pthw ../models/iql_2p/iql_2p_210.pthw ../models/iql_2p/iql_2p_5.pthw 
+--num_player 2
+note the last arg of --weight_2 is the self-play that is the agent that was being trained.
 '''
 
 import argparse
