@@ -1,3 +1,5 @@
+# AGEM implementation
+
 import time
 import os
 import sys
@@ -13,8 +15,8 @@ from create_cont import create_envs, create_threads, ActGroup
 from eval import evaluate
 import common_utils
 import rela
-import r2d2_gru_unify as r2d2_gru
-import r2d2_lstm_unify as r2d2_lstm
+import r2d2_gru as r2d2_gru
+import r2d2_lstm as r2d2_lstm
 import utils
 # os.environ["WANDB_API_KEY"] = "b002db5ed8e9de3af350e301d5c25d0dcd8ea320"
 # os.environ['WANDB_MODE'] = 'dryrun'
