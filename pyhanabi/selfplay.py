@@ -1,8 +1,3 @@
-# Copyright (c) Facebook, Inc. and its affiliates.
-# All rights reserved.
-#
-# This source code is licensed under the license found in the
-# LICENSE file in the root directory of this source tree.
 #
 import time
 import os
@@ -19,8 +14,8 @@ from create import create_envs, create_threads, ActGroup
 from eval import evaluate
 import common_utils
 import rela
-import r2d2_lstm_unify as r2d2_lstm
-import r2d2_gru_unify as r2d2_gru
+import r2d2_lstm as r2d2_lstm
+import r2d2_gru as r2d2_gru
 import utils
 
 
