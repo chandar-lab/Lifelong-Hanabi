@@ -95,7 +95,7 @@ if __name__ == "__main__":
     if not os.path.exists(args.save_dir):
         os.makedirs(args.save_dir)
 
-    args.args_dump_name = "iql_2p_"+str(args.seed)+".txt"
+    args.args_dump_name = args.method + "_2p_"+str(args.seed)+".txt"
     
     with open(args.save_dir+"/"+args.args_dump_name, 'w') as f:
         json.dump(args.__dict__, f, indent=2)
