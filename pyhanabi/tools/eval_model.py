@@ -25,12 +25,9 @@ from eval import evaluate
 
 def evaluate_legacy_model(
     weight_files, num_game, seed, bomb, args, num_run=1, verbose=True):
-    # model_lockers = []
-    # greedy_extra = 0
     agents = []
     num_player = len(weight_files)
     assert num_player > 1, "1 weight file per player"
-    # print("args weight 1 inside evaluate leg model is ", args.weight_1_dir)
 
     for weight_file in weight_files:
         if verbose:
@@ -46,16 +43,12 @@ def evaluate_legacy_model(
 
         state_dict = torch.load(weight_file)
         input_dim = state_dict["net.0.weight"].size()[1]
-        hid_dim = 512
-        num_lstm_layer = 2
         output_dim = state_dict["fc_a.weight"].size()[0]
 
         agent_name = weight_file.split("/")[-1].split(".")[0]
 
         with open(args.weight_1_dir+"/"+agent_name+".txt", 'r') as f:
             agent_args = {**json.load(f)}
-
-        # print("args after merging dictionaries is ...", args)
 
         if agent_args['rnn_type'] == "lstm":
             agent = r2d2_lstm.R2D2Agent(
@@ -102,15 +95,11 @@ if __name__ == "__main__":
     assert os.path.exists(args.weight_1_dir) 
     weight_1 = []
     weight_1 = glob.glob(args.weight_1_dir+"/*.pthw")
-    # weight_1.sort(key=os.path.getmtime)
-
-    print("ckpt files are ", weight_1)
     
     scores_arr = np.zeros([len(weight_1), len(weight_1)])
     sem_arr = np.zeros([len(weight_1), len(weight_1)])
     ag1_names = []
 
-    ## check if everything in weights_1 exist
     for ag1 in weight_1:
         ag1_names.append(ag1.split("/")[-1].split(".")[0])
 
@@ -121,7 +110,7 @@ if __name__ == "__main__":
             ## we are doing cross player, the 2 players use different weights
             print("Current game is ", str(ag1_idx) + " vs " + str(ag2_idx))
             weight_files = [ag1, ag2]
-            # # fast evaluation for 10k games
+            # # fast evaluation for 5k games
             mean, sem, _ = evaluate_legacy_model(weight_files, 1000, 1, 0, args, num_run=5)
             scores_arr[ag1_idx, ag2_idx] = mean
             sem_arr[ag1_idx, ag2_idx] = sem 
