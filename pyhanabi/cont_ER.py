@@ -174,7 +174,6 @@ if __name__ == "__main__":
             learnable_agent_args['num_fflayer'],
             learnable_agent_args['num_rnn_layer'],
             args.hand_size,
-            args.dropout_p,
             False,  # uniform priority
         )
     elif learnable_agent_args['rnn_type'] == "gru":
@@ -190,7 +189,6 @@ if __name__ == "__main__":
             learnable_agent_args['num_fflayer'],
             learnable_agent_args['num_rnn_layer'],
             args.hand_size,
-            args.dropout_p,
             False,  # uniform priority
         )
 
@@ -230,7 +228,6 @@ if __name__ == "__main__":
                 opp_model_args['num_fflayer'],
                 opp_model_args['num_rnn_layer'],
                 args.hand_size,
-                args.dropout_p,
                 False,  # uniform priority
             )
         elif opp_model_args['rnn_type'] == "gru":
@@ -246,7 +243,6 @@ if __name__ == "__main__":
                 opp_model_args['num_fflayer'],
                 opp_model_args['num_rnn_layer'],
                 args.hand_size,
-                args.dropout_p,
                 False,  # uniform priority
             )
         

@@ -44,8 +44,14 @@ def parse_args():
     parser.add_argument("--hand_size", type=int, default=5)
 
     # optimization/training settings
-    parser.add_argument("--lr", type=float, default=6.25e-5, help="Learning rate")
+    parser.add_argument("--initial_lr", type=float, default=0.1, help="Initial learning rate")
+    parser.add_argument("--final_lr", type=float, default=6.25e-5, help="Final learning rate")
+    parser.add_argument("--lr_gamma", type=float, default=0.2, help="lr decay")
+    parser.add_argument("--decay_lr", action="store_true", default=False)
+    parser.add_argument("--dropout_p", type=float, default=0, help="drop probability")
+    parser.add_argument("--optim_name", type=str, default="Adam")
     parser.add_argument("--eps", type=float, default=1.5e-4, help="Adam epsilon")
+    parser.add_argument("--sgd_momentum", type=float, default=0.8, help="SGD momentum")
     parser.add_argument("--grad_clip", type=float, default=50, help="max grad norm")
     parser.add_argument("--num_lstm_layer", type=int, default=2)
     parser.add_argument("--rnn_hid_dim", type=int, default=512)
@@ -197,7 +203,6 @@ if __name__ == "__main__":
         print("*****done*****")
 
     learnable_agent = learnable_agent.to(args.train_device)
-    optim = torch.optim.Adam(learnable_agent.online_net.parameters(), lr=args.lr, eps=args.eps)
     print(learnable_agent)
 
     eval_agent = learnable_agent.clone(args.train_device, {"vdn": False})
@@ -257,6 +262,16 @@ if __name__ == "__main__":
     for task_idx, fixed_agent in enumerate(fixed_agents):
         ## TODO: Exp decision : do we want different replay buffer when playing with diff opponents
         ## i.e do we want to replay prev experiences? 
+        if args.decay_lr:
+            lr = max(args.initial_lr * args.lr_gamma**(task_idx), args.final_lr)
+        else:
+            lr = args.final_lr
+
+        if args.optim_name == "Adam":
+            optim = torch.optim.Adam(learnable_agent.online_net.parameters(), lr=lr, eps=args.eps)
+        elif args.optim_name == "SGD":
+            optim = torch.optim.SGD(learnable_agent.online_net.parameters(), lr=lr, momentum=args.sgd_momentum)
+
         replay_buffer = rela.RNNPrioritizedReplay(
             args.replay_buffer_size,
             args.seed,
@@ -503,8 +518,13 @@ if __name__ == "__main__":
                     if args.eval_method == 'few_shot':
                         print("Few Shot Learning ...")
                         few_shot_learnable_agent = learnable_agent.clone(args.train_device, {"vdn": False})
-                        eval_optim = torch.optim.Adam(few_shot_learnable_agent.online_net.parameters(), lr=args.lr,
-                                                      eps=args.eps)
+                        if args.optim_name == "Adam":
+                            eval_optim = torch.optim.Adam(few_shot_learnable_agent.online_net.parameters(), lr=args.final_lr,
+                                    eps=args.eps)
+                        elif args.optim_name == "SGD":
+                            eval_optim = torch.optim.SGD(few_shot_learnable_agent.online_net.parameters(), lr=args.final_lr,
+                                    momentum=args.sgd_momentum)
+
                         eval_replay_buffer = rela.RNNPrioritizedReplay(
                             args.eval_replay_buffer_size,
                             eval_seed,
@@ -547,11 +567,13 @@ if __name__ == "__main__":
                         while eval_replay_buffer.size() < args.eval_burn_in_frames:
                             print("warming up replay buffer:", eval_replay_buffer.size())
                             time.sleep(1)
+                        eval_tachometer = utils.Tachometer()
                         eval_stat = common_utils.MultiCounter(args.save_dir)
 
                         for eval_epoch in range(args.eval_num_epoch):
                             print("beginning of eval epoch: ", eval_epoch)
                             eval_stat.reset()
+                            eval_tachometer.start()
                             for eval_batch_idx in range(args.eval_epoch_len):
                                 eval_num_update = eval_batch_idx + eval_epoch * args.eval_epoch_len
                                 if eval_num_update % args.eval_num_update_between_sync == 0:
@@ -588,6 +610,7 @@ if __name__ == "__main__":
 
                                 eval_stat["loss"].feed(loss.detach().item())
                                 eval_stat["grad_norm"].feed(g_norm.detach().item())
+                            eval_tachometer.lap(eval_act_group.actors, eval_replay_buffer, args.eval_epoch_len * args.batchsize, count_factor)
                             eval_stat.summary(eval_epoch)
                         eval_context.pause()
                         fs_force_save_name = "model_epoch%d_few_shot_%d" % (act_epoch_cnt, eval_fixed_ag_idx)
