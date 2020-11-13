@@ -491,11 +491,13 @@ if __name__ == "__main__":
                         while eval_replay_buffer.size() < args.eval_burn_in_frames:
                             print("warming up replay buffer:", eval_replay_buffer.size())
                             time.sleep(1)
+                        eval_tachometer = utils.Tachometer()
                         eval_stat = common_utils.MultiCounter(args.save_dir)
 
                         for eval_epoch in range(args.eval_num_epoch):
                             print("beginning of eval epoch: ", eval_epoch)
                             eval_stat.reset()
+                            eval_tachometer.start()
                             for eval_batch_idx in range(args.eval_epoch_len):
                                 eval_num_update = eval_batch_idx + eval_epoch * args.eval_epoch_len
                                 if eval_num_update % args.eval_num_update_between_sync == 0:
@@ -532,6 +534,7 @@ if __name__ == "__main__":
 
                                 eval_stat["loss"].feed(loss.detach().item())
                                 eval_stat["grad_norm"].feed(g_norm.detach().item())
+                            eval_tachometer.lap(eval_act_group.actors, eval_replay_buffer, args.eval_epoch_len * args.batchsize, count_factor)
                             eval_stat.summary(eval_epoch)
                         eval_context.pause()
                         fs_force_save_name = "model_epoch%d_few_shot_%d" % (act_epoch_cnt, eval_fixed_ag_idx)
