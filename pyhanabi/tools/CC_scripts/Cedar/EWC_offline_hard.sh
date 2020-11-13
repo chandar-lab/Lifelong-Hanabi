@@ -6,9 +6,15 @@
 #SBATCH --time=72:00:00
 #SBATCH -o /scratch/akb/ewc_offline_hard_noeval-%j.out
 
+## specify optim_name to be either Adam or SGD.
+## specify --decay_lr for learning rate decay.
+## dropout_p should be 0 for no dropout. dropout_p is drop probability.
+
 USER="akb"
 EVAL_METHOD="few_shot"
 LOAD_MODEL_DIR="../models/iql_2p"
+INITIAL_LR=0.02
+BATCH_SIZE=128
 python cont_EWC.py \
        --save_dir /scratch/${USER}/ind_RB_${EVAL_METHOD}_EWC_offline_noeval_hard \
        --load_model_dir ${LOAD_MODEL_DIR} \
@@ -24,7 +30,6 @@ python cont_EWC.py \
        --sad 0 \
        --act_base_eps 0.1 \
        --act_eps_alpha 7 \
-       --lr 6.25e-05 \
        --eps 1.5e-05 \
        --grad_clip 5 \
        --gamma 0.999 \
@@ -32,7 +37,12 @@ python cont_EWC.py \
        --online 0 \
        --ewc_lambda 5000 \
        --ewc_gamma 1 \
-       --batchsize 128 \
+       --initial_lr ${INITIAL_LR} \
+       --final_lr 6.25e-05 \
+       --lr_gamma 0.2 \
+       --dropout_p 0 \
+       --sgd_momentum 0.8 \
+       --batchsize ${BATCH_SIZE} \
        --burn_in_frames 10000 \
        --eval_burn_in_frames 1000 \
        --replay_buffer_size 32768 \
