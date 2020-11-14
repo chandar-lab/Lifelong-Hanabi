@@ -482,7 +482,7 @@ if __name__ == "__main__":
                 stat["grad_norm"].feed(g_norm.detach().item())
 
             count_factor = args.num_player if args.method == "vdn" else 1
-            print("EPOCH: %d" % act_epoch_cnt)
+            print("EPOCH: %d" % total_epochs)
             tachometer.lap(
                 act_group.actors, replay_buffer, args.epoch_len * args.batchsize, count_factor
             )
