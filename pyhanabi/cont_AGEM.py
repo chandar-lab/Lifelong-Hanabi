@@ -18,8 +18,6 @@ import rela
 import r2d2_gru as r2d2_gru
 import r2d2_lstm as r2d2_lstm
 import utils
-# os.environ["WANDB_API_KEY"] = "b002db5ed8e9de3af350e301d5c25d0dcd8ea320"
-# os.environ['WANDB_MODE'] = 'dryrun'
 
 def parse_args():
     parser = argparse.ArgumentParser(description="train dqn on hanabi")
@@ -53,8 +51,6 @@ def parse_args():
     parser.add_argument("--eps", type=float, default=1.5e-4, help="Adam epsilon")
     parser.add_argument("--sgd_momentum", type=float, default=0.8, help="SGD momentum")
     parser.add_argument("--grad_clip", type=float, default=50, help="max grad norm")
-    parser.add_argument("--num_lstm_layer", type=int, default=2)
-    parser.add_argument("--rnn_hid_dim", type=int, default=512)
 
     parser.add_argument("--train_device", type=str, default="cuda:0")
     parser.add_argument("--batchsize", type=int, default=128)
@@ -85,7 +81,7 @@ def parse_args():
     # thread setting
     parser.add_argument("--num_thread", type=int, default=40, help="#thread_loop")
     parser.add_argument("--num_game_per_thread", type=int, default=20)
-    parser.add_argument("--eval_num_thread", type=int, default=40, help="#thread_loop")
+    parser.add_argument("--eval_num_thread", type=int, default=40, help="#eval_thread_loop")
     parser.add_argument("--eval_num_game_per_thread", type=int, default=20)
 
     # actor setting
@@ -119,8 +115,7 @@ if __name__ == "__main__":
     if not os.path.exists(args.save_dir):
         os.makedirs(args.save_dir)
 
-    rb_exp_name = int(args.replay_buffer_size) // 1000
-    args.args_dump_name = str(rb_exp_name)+"k_"+args.ll_algo+".txt"
+    args.args_dump_name = "cont_args.txt"
 
     with open(args.save_dir+"/"+args.args_dump_name, 'w') as f:
         json.dump(args.__dict__, f, indent=2)
@@ -161,8 +156,6 @@ if __name__ == "__main__":
     learnable_agent_name = args.load_learnable_model.split("/")[-1].split(".")[0]
     with open(args.load_model_dir+"/"+learnable_agent_name+".txt") as f:
         learnable_agent_args = {**json.load(f)}
-    
-    print("learnable agent args is ", learnable_agent_args)
 
     if learnable_agent_args['rnn_type'] == "lstm":
         learnable_agent = r2d2_lstm.R2D2Agent(
@@ -257,11 +250,9 @@ if __name__ == "__main__":
         fixed_agent = fixed_agent.to(args.train_device)
         fixed_agents.append(fixed_agent)
 
-    act_epoch_cnt = 0
+    total_epochs = 0
 
     for task_idx, fixed_agent in enumerate(fixed_agents):
-        ## TODO: Exp decision : do we want different replay buffer when playing with diff opponents
-        ## i.e do we want to replay prev experiences? 
         if args.decay_lr:
             lr = max(args.initial_lr * args.lr_gamma**(task_idx), args.final_lr)
         else:
@@ -329,8 +320,8 @@ if __name__ == "__main__":
         stopwatch = common_utils.Stopwatch()
 
         for epoch in range(args.num_epoch):
-            act_epoch_cnt += 1
-            print("beginning of epoch: ", act_epoch_cnt)
+            total_epochs += 1
+            print("beginning of epoch: ", total_epochs)
             cnt_angle_less = 0
             print(common_utils.get_mem_usage())
             tachometer.start()
@@ -443,14 +434,8 @@ if __name__ == "__main__":
                     priority.cpu(), batch.seq_len.cpu(), args.eta
                 )
 
-                # print("weight sum before calculating loss cur is ", weight.sum())
                 loss_cur = (loss_cur * weight).mean()
                 loss_cur.backward()
-
-                
-                # total_learnable_parameters = sum(p.numel() for p in learnable_agent.online_net.parameters() if p.requires_grad)
-                # print("total learnable parameters ", total_learnable_parameters)
-                # print("Length of p is  ", len(list(learnable_agent.online_net.parameters())))
 
                 if task_idx > 0:
                     ## reorganize the gradient of the current batch as a single vector
@@ -461,13 +446,9 @@ if __name__ == "__main__":
                                 grad_cur.append(p.grad.view(-1))
                     grad_cur = torch.cat(grad_cur)
 
-                    # print("grad rep size is ", grad_rep.size())
-                    # print("grad cur size is ", grad_cur.size())
-
                     ## adding A-GEM projection inequality.
                     angle = (grad_cur*grad_rep).sum()
                     if angle < 0:
-                        #print("angle less than 0 ... ")
                         cnt_angle_less += 1
                     # -if violated, project the gradient of the current batch onto the gradient of the replayed batch ...
                         length_rep = (grad_rep*grad_rep).sum()
@@ -613,12 +594,12 @@ if __name__ == "__main__":
                             eval_tachometer.lap(eval_act_group.actors, eval_replay_buffer, args.eval_epoch_len * args.batchsize, count_factor)
                             eval_stat.summary(eval_epoch)
                         eval_context.pause()
-                        fs_force_save_name = "model_epoch%d_few_shot_%d" % (act_epoch_cnt, eval_fixed_ag_idx)
+                        fs_force_save_name = "model_epoch%d_few_shot_%d" % (total_epochs, eval_fixed_ag_idx)
                         few_shot_model_saved = saver.save(None, few_shot_learnable_agent.online_net.state_dict(), force_save_name=fs_force_save_name)      
                         print("few shot model saved: %s "%(few_shot_model_saved))
 
                 ## zero shot learnable agent. 
-                zs_force_save_name = "model_epoch%d_zero_shot" %(act_epoch_cnt)
+                zs_force_save_name = "model_epoch%d_zero_shot" %(total_epochs)
                 zero_shot_model_saved = saver.save(None, learnable_agent.online_net.state_dict(), force_save_name=zs_force_save_name)
                 print("zero shot model saved: %s "%(zero_shot_model_saved))
 
