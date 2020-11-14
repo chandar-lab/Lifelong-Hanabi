@@ -31,11 +31,9 @@ class EWC(nn.Module):
 				est_fisher_info[n] = p.detach().clone().zero_()
 				if p.grad is not None:
 					est_fisher_info[n] += p.grad.detach() ** 2
-
-		# print("estimate_fisher info before normalization is ", est_fisher_info)
+					
 		# Normalize by sample size used for estimation
 		est_fisher_info = {n: p/self.batchsize for n, p in est_fisher_info.items()}
-		# print("estimate_fisher info after normalization is ", est_fisher_info)
 
 	# Store new values in the network
 		for n, p in learnable_agent.online_net.named_parameters():
@@ -54,7 +52,6 @@ class EWC(nn.Module):
 
 
 	def compute_ewc_loss(self, learnable_agent, task_idx):
-		# print("computing ewc_loss")
 		if task_idx>0:
 			losses = []
 	# If "offline EWC", loop over all previous tasks (if "online EWC", [EWC_task_count]=1 so only 1 iteration)
@@ -67,11 +64,7 @@ class EWC(nn.Module):
 						fisher = getattr(self, '{}_EWC_estimated_fisher{}'.format(n, "" if self.online else task))
 						# If "online EWC", apply decay-term to the running sum of the Fisher Information matrices
 						fisher = self.ewc_gamma*fisher if self.online else fisher
-
-						# print("mean for task ", task, " and named parameter ", n, " is ", mean)
-						# print("fisher for task ", task, " and named parameter ", n," is ", fisher)
-
-						# print("diff p - mean sum is ", ((p-mean)**2).sum())
+						
 						# Calculate EWC-loss
 						losses.append((fisher * (p-mean)**2).sum())
 				# Sum EWC-loss from all parameters (and from all tasks, if "offline EWC")
