@@ -19,8 +19,6 @@ import r2d2_gru as r2d2_gru
 import r2d2_lstm as r2d2_lstm
 import utils
 import EWC as ewc
-# os.environ["WANDB_API_KEY"] = "b002db5ed8e9de3af350e301d5c25d0dcd8ea320"
-# os.environ['WANDB_MODE'] = 'dryrun'
 
 def parse_args():
     parser = argparse.ArgumentParser(description="train dqn on hanabi")
@@ -54,8 +52,6 @@ def parse_args():
     parser.add_argument("--eps", type=float, default=1.5e-4, help="Adam epsilon")
     parser.add_argument("--sgd_momentum", type=float, default=0.8, help="SGD momentum")
     parser.add_argument("--grad_clip", type=float, default=50, help="max grad norm")
-    parser.add_argument("--num_lstm_layer", type=int, default=2)
-    parser.add_argument("--rnn_hid_dim", type=int, default=512)
 
     parser.add_argument("--train_device", type=str, default="cuda:0")
     parser.add_argument("--batchsize", type=int, default=128)
@@ -126,8 +122,7 @@ if __name__ == "__main__":
     if not os.path.exists(args.save_dir):
         os.makedirs(args.save_dir)
 
-    rb_exp_name = int(args.replay_buffer_size) // 1000
-    args.args_dump_name = str(rb_exp_name)+"k_"+args.ll_algo+".txt"
+    args.args_dump_name = "cont_args.txt"
 
     with open(args.save_dir+"/"+args.args_dump_name, 'w') as f:
         json.dump(args.__dict__, f, indent=2)
@@ -264,11 +259,9 @@ if __name__ == "__main__":
         fixed_agent = fixed_agent.to(args.train_device)
         fixed_agents.append(fixed_agent)
 
-    act_epoch_cnt = 0
+    total_epochs = 0
 
     for task_idx, fixed_agent in enumerate(fixed_agents):
-        ## TODO: Exp decision : do we want different replay buffer when playing with diff opponents
-        ## i.e do we want to replay prev experiences? 
         if args.decay_lr:
             lr = max(args.initial_lr * args.lr_gamma**(task_idx), args.final_lr)
         else:
@@ -336,8 +329,8 @@ if __name__ == "__main__":
         stopwatch = common_utils.Stopwatch()
 
         for epoch in range(args.num_epoch):
-            act_epoch_cnt += 1
-            print("beginning of epoch: ", act_epoch_cnt)
+            total_epochs += 1
+            print("beginning of epoch: ", total_epochs)
             print(common_utils.get_mem_usage())
             tachometer.start()
             stat.reset()
@@ -366,15 +359,9 @@ if __name__ == "__main__":
                 if args.ll_algo == "EWC":
                     if epoch == (args.num_epoch-1) and batch_idx == (args.epoch_len-1):
                         ewc_class.estimate_fisher(learnable_agent, batch, weight, stat, task_idx)
-
+                        
                     ewc_loss = ewc_class.compute_ewc_loss(learnable_agent, task_idx)
-                    
-                    #print("task idx is ", task_idx)
-                    #print("orig loss is ", loss)
-                    #print("EWC loss is ", args.ewc_lambda*ewc_loss)
-                    #print("\n")
                     loss += args.ewc_lambda * ewc_loss
-
 
                 optim.zero_grad()
                 loss.backward()
@@ -399,7 +386,7 @@ if __name__ == "__main__":
                 stat["grad_norm"].feed(g_norm.detach().item())
 
             count_factor = args.num_player if args.method == "vdn" else 1
-            print("EPOCH: %d" % act_epoch_cnt)
+            print("EPOCH: %d" % total_epochs)
             tachometer.lap(
                 act_group.actors, replay_buffer, args.epoch_len * args.batchsize, count_factor
             )
@@ -511,12 +498,12 @@ if __name__ == "__main__":
                             eval_tachometer.lap(eval_act_group.actors, eval_replay_buffer, args.eval_epoch_len * args.batchsize, count_factor)
                             eval_stat.summary(eval_epoch)
                         eval_context.pause()
-                        fs_force_save_name = "model_epoch%d_few_shot_%d" % (act_epoch_cnt, eval_fixed_ag_idx)
+                        fs_force_save_name = "model_epoch%d_few_shot_%d" % (total_epochs, eval_fixed_ag_idx)
                         few_shot_model_saved = saver.save(None, few_shot_learnable_agent.online_net.state_dict(), force_save_name=fs_force_save_name)      
                         print("few shot model saved: %s "%(few_shot_model_saved))
 
                 ## zero shot learnable agent. 
-                zs_force_save_name = "model_epoch%d_zero_shot" %(act_epoch_cnt)
+                zs_force_save_name = "model_epoch%d_zero_shot" %(total_epochs)
                 zero_shot_model_saved = saver.save(None, learnable_agent.online_net.state_dict(), force_save_name=zs_force_save_name)
                 print("zero shot model saved: %s "%(zero_shot_model_saved))
 
