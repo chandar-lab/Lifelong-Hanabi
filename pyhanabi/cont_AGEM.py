@@ -194,7 +194,7 @@ if __name__ == "__main__":
                 False,  # uniform priority
             )
     else:
-        if args['rnn_type'] == "lstm":
+        if args.rnn_type == "lstm":
             learnable_agent = r2d2_lstm.R2D2Agent(
                 (args.method == "vdn"),
                 args.multi_step,
@@ -202,14 +202,14 @@ if __name__ == "__main__":
                 args.eta,
                 args.train_device,
                 games[0].feature_size(),
-                args['rnn_hid_dim'],
+                args.rnn_hid_dim,
                 games[0].num_action(),
-                args['num_fflayer'],
-                args['num_rnn_layer'],
+                args.num_fflayer,
+                args.num_rnn_layer,
                 args.hand_size,
                 False,  # uniform priority
             )
-        elif args['rnn_type'] == "gru":
+        elif args.rnn_type == "gru":
             learnable_agent = r2d2_gru.R2D2Agent(
                 (args.method == "vdn"),
                 args.multi_step,
@@ -217,10 +217,10 @@ if __name__ == "__main__":
                 args.eta,
                 args.train_device,
                 games[0].feature_size(),
-                args['rnn_hid_dim'],
+                args.rnn_hid_dim,
                 games[0].num_action(),
-                args['num_fflayer'],
-                args['num_rnn_layer'],
+                args.num_fflayer,
+                args.num_rnn_layer,
                 args.hand_size,
                 False,  # uniform priority
             ) 
