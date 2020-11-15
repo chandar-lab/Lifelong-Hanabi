@@ -53,6 +53,11 @@ def parse_args():
     parser.add_argument("--sgd_momentum", type=float, default=0.8, help="SGD momentum")
     parser.add_argument("--grad_clip", type=float, default=50, help="max grad norm")
 
+    parser.add_argument("--rnn_type", type=str, default="lstm")
+    parser.add_argument("--num_fflayer", type=int, default=1)
+    parser.add_argument("--num_rnn_layer", type=int, default=2)
+    parser.add_argument("--rnn_hid_dim", type=int, default=512)
+
     parser.add_argument("--train_device", type=str, default="cuda:0")
     parser.add_argument("--batchsize", type=int, default=128)
     parser.add_argument("--num_epoch", type=int, default=500)
@@ -159,40 +164,72 @@ if __name__ == "__main__":
         args.shuffle_color,
     )
 ## this is the learnable agent.
-    learnable_agent_name = args.load_learnable_model.split("/")[-1].split(".")[0]
-    with open(args.load_model_dir+"/"+learnable_agent_name+".txt") as f:
-        learnable_agent_args = {**json.load(f)}
+    if args.load_learnable_model:
+        learnable_agent_name = args.load_learnable_model.split("/")[-1].split(".")[0]
+        with open(args.load_model_dir+"/"+learnable_agent_name+".txt") as f:
+            learnable_agent_args = {**json.load(f)}
 
-    if learnable_agent_args['rnn_type'] == "lstm":
-        learnable_agent = r2d2_lstm.R2D2Agent(
-            (args.method == "vdn"),
-            args.multi_step,
-            args.gamma,
-            args.eta,
-            args.train_device,
-            games[0].feature_size(),
-            learnable_agent_args['rnn_hid_dim'],
-            games[0].num_action(),
-            learnable_agent_args['num_fflayer'],
-            learnable_agent_args['num_rnn_layer'],
-            args.hand_size,
-            False,  # uniform priority
-        )
-    elif learnable_agent_args['rnn_type'] == "gru":
-        learnable_agent = r2d2_gru.R2D2Agent(
-            (args.method == "vdn"),
-            args.multi_step,
-            args.gamma,
-            args.eta,
-            args.train_device,
-            games[0].feature_size(),
-            learnable_agent_args['rnn_hid_dim'],
-            games[0].num_action(),
-            learnable_agent_args['num_fflayer'],
-            learnable_agent_args['num_rnn_layer'],
-            args.hand_size,
-            False,  # uniform priority
-        )
+        if learnable_agent_args['rnn_type'] == "lstm":
+            learnable_agent = r2d2_lstm.R2D2Agent(
+                (args.method == "vdn"),
+                args.multi_step,
+                args.gamma,
+                args.eta,
+                args.train_device,
+                games[0].feature_size(),
+                learnable_agent_args['rnn_hid_dim'],
+                games[0].num_action(),
+                learnable_agent_args['num_fflayer'],
+                learnable_agent_args['num_rnn_layer'],
+                args.hand_size,
+                False,  # uniform priority
+            )
+        elif learnable_agent_args['rnn_type'] == "gru":
+            learnable_agent = r2d2_gru.R2D2Agent(
+                (args.method == "vdn"),
+                args.multi_step,
+                args.gamma,
+                args.eta,
+                args.train_device,
+                games[0].feature_size(),
+                learnable_agent_args['rnn_hid_dim'],
+                games[0].num_action(),
+                learnable_agent_args['num_fflayer'],
+                learnable_agent_args['num_rnn_layer'],
+                args.hand_size,
+                False,  # uniform priority
+            )
+    else:
+        if args['rnn_type'] == "lstm":
+            learnable_agent = r2d2_lstm.R2D2Agent(
+                (args.method == "vdn"),
+                args.multi_step,
+                args.gamma,
+                args.eta,
+                args.train_device,
+                games[0].feature_size(),
+                args['rnn_hid_dim'],
+                games[0].num_action(),
+                args['num_fflayer'],
+                args['num_rnn_layer'],
+                args.hand_size,
+                False,  # uniform priority
+            )
+        elif args['rnn_type'] == "gru":
+            learnable_agent = r2d2_gru.R2D2Agent(
+                (args.method == "vdn"),
+                args.multi_step,
+                args.gamma,
+                args.eta,
+                args.train_device,
+                games[0].feature_size(),
+                args['rnn_hid_dim'],
+                games[0].num_action(),
+                args['num_fflayer'],
+                args['num_rnn_layer'],
+                args.hand_size,
+                False,  # uniform priority
+            ) 
 
     learnable_agent.sync_target_with_online()
 
