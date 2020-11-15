@@ -1,8 +1,3 @@
-# Copyright (c) Facebook, Inc. and its affiliates.
-# All rights reserved.
-#
-# This source code is licensed under the license found in the
-# LICENSE file in the root directory of this source tree.
 #
 import os
 import time
@@ -10,8 +5,8 @@ from collections import OrderedDict
 import json
 import torch
 import numpy as np
-
-import r2d2
+import r2d2_gru as r2d2_gru
+import r2d2_lstm as r2d2_lstm
 from create import *
 import common_utils
 
@@ -59,6 +54,8 @@ def flatten_dict(d, new_dict):
 def load_agent(weight_file, overwrite):
     """
     overwrite has to contain "device"
+    TODO: this has boltzmann_t in create_envs and boltzmann_act in config 
+    These are probably obsolete and hence might hinder our ability to use it right now.
     """
     cfg = get_train_config(weight_file)
     assert cfg is not None
@@ -92,12 +89,17 @@ def load_agent(weight_file, overwrite):
         "in_dim": game.feature_size(),
         "hid_dim": cfg["hid_dim"] if "hid_dim" in cfg else cfg["rnn_hid_dim"],
         "out_dim": game.num_action(),
-        "num_lstm_layer": cfg.get("num_lstm_layer", overwrite.get("num_lstm_layer", 2)),
+        "num_fflayer": overwrite.get("num_fflayer", cfg["num_fflayer"]),
+        "num_rnn_layer": overwrite.get("num_rnn_layer", cfg["num_rnn_layer"]),
         "boltzmann_act": overwrite.get("boltzmann_act", cfg["boltzmann_act"]),
+        "hand_size": overwrite.get("hand_size", cfg["hand_size"]),
         "uniform_priority": overwrite.get("uniform_priority", False),
     }
+    if cfg["rnn_type"] == "lstm":
+        agent = r2d2_lstm.R2D2Agent(**config).to(config["device"])
+    elif cfg["rnn_type"] == "gru":
+        agent = r2d2_gru.R2D2Agent(**config).to(config["device"])
 
-    agent = r2d2.R2D2Agent(**config).to(config["device"])
     load_weight(agent.online_net, weight_file, config["device"])
     agent.sync_target_with_online()
     return agent, cfg
