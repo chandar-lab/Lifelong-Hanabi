@@ -6,9 +6,10 @@ USER="akb"
 EVAL_METHOD="few_shot"
 LOAD_MODEL_DIR="../models/iql_2p"
 INITIAL_LR=0.02
-BATCH_SIZE=128
+BATCH_SIZE=32
+OPTIM_NAME="Adam"
 python cont_ER.py \
-       --save_dir /miniscratch/${USER}/cont_hanabi_models/exps/ind_RB_${EVAL_METHOD}_None_noeval_hard \
+       --save_dir /miniscratch/${USER}/cont_hanabi_models/exps/${OPTIM_NAME}_None_hard \
        --load_model_dir ${LOAD_MODEL_DIR} \
        --method iql \
        --ll_algo None \
@@ -31,6 +32,7 @@ python cont_ER.py \
        --lr_gamma 0.2 \
        --dropout_p 0 \
        --sgd_momentum 0.8 \
+       --optim_name ${OPTIM_NAME} \
        --batchsize ${BATCH_SIZE} \
        --burn_in_frames 10000 \
        --eval_burn_in_frames 1000 \
@@ -45,6 +47,9 @@ python cont_ER.py \
        --eval_method ${EVAL_METHOD} \
        --eval_freq 25 \
        --num_player 2 \
+       --rnn_type lstm \
+       --num_fflayer 1 \
+       --num_rnn_layer 2 \
        --rnn_hid_dim 512 \
        --act_device cuda:1,cuda:2 \
        --shuffle_color 0 \

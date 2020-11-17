@@ -6,9 +6,10 @@ USER="akb"
 EVAL_METHOD="few_shot"
 LOAD_MODEL_DIR="../models/iql_2p"
 INITIAL_LR=0.02
-BATCH_SIZE=128
+BATCH_SIZE=32
+OPTIM_NAME="Adam"
 python cont_EWC.py \
-       --save_dir /miniscratch/${USER}/cont_hanabi_models/exps/ind_RB_${EVAL_METHOD}_EWC_online_noeval_easy \
+       --save_dir /miniscratch/${USER}/cont_hanabi_models/exps/${OPTIM_NAME}_EWC_online_easy \
        --load_model_dir ${LOAD_MODEL_DIR} \
        --method iql \
        --ll_algo EWC \
@@ -25,15 +26,16 @@ python cont_EWC.py \
        --grad_clip 5 \
        --gamma 0.999 \
        --seed 1 \
-       --online 1 \
-       --ewc_lambda 5000 \
-       --ewc_gamma 1 \
        --initial_lr ${INITIAL_LR} \
        --final_lr 6.25e-05 \
        --lr_gamma 0.2 \
        --dropout_p 0 \
        --sgd_momentum 0.8 \
+       --optim_name ${OPTIM_NAME} \
        --batchsize ${BATCH_SIZE} \
+       --online 1 \
+       --ewc_lambda 5000 \
+       --ewc_gamma 1 \
        --burn_in_frames 10000 \
        --eval_burn_in_frames 1000 \
        --replay_buffer_size 32768 \
@@ -47,6 +49,9 @@ python cont_EWC.py \
        --eval_method ${EVAL_METHOD} \
        --eval_freq 25 \
        --num_player 2 \
+       --rnn_type lstm \
+       --num_fflayer 1 \
+       --num_rnn_layer 2 \
        --rnn_hid_dim 512 \
        --act_device cuda:1,cuda:2 \
        --shuffle_color 0 \
