@@ -14,8 +14,6 @@ from torch import nn
 from create_cont import create_envs, create_threads, ActGroup
 import common_utils
 import rela
-import r2d2_gru as r2d2_gru
-import r2d2_lstm as r2d2_lstm
 import utils
 
 def parse_args():
@@ -161,67 +159,35 @@ if __name__ == "__main__":
         with open(args.load_model_dir+"/"+learnable_agent_name+".txt") as f:
             learnable_agent_args = {**json.load(f)}
 
-        if learnable_agent_args['rnn_type'] == "lstm":
-            learnable_agent = r2d2_lstm.R2D2Agent(
-                (args.method == "vdn"),
-                args.multi_step,
-                args.gamma,
-                args.eta,
-                args.train_device,
-                games[0].feature_size(),
-                learnable_agent_args['rnn_hid_dim'],
-                games[0].num_action(),
-                learnable_agent_args['num_fflayer'],
-                learnable_agent_args['num_rnn_layer'],
-                args.hand_size,
-                False,  # uniform priority
-            )
-        elif learnable_agent_args['rnn_type'] == "gru":
-            learnable_agent = r2d2_gru.R2D2Agent(
-                (args.method == "vdn"),
-                args.multi_step,
-                args.gamma,
-                args.eta,
-                args.train_device,
-                games[0].feature_size(),
-                learnable_agent_args['rnn_hid_dim'],
-                games[0].num_action(),
-                learnable_agent_args['num_fflayer'],
-                learnable_agent_args['num_rnn_layer'],
-                args.hand_size,
-                False,  # uniform priority
-            )
+        rnn_type = learnable_agent_args['rnn_type']
+        rnn_hid_dim = learnable_agent_args['rnn_hid_dim']
+        num_fflayer = learnable_agent_args['num_fflayer']
+        num_rnn_layer = learnable_agent_args['num_rnn_layer']
     else:
-        if args.rnn_type == "lstm":
-            learnable_agent = r2d2_lstm.R2D2Agent(
-                (args.method == "vdn"),
-                args.multi_step,
-                args.gamma,
-                args.eta,
-                args.train_device,
-                games[0].feature_size(),
-                args.rnn_hid_dim,
-                games[0].num_action(),
-                args.num_fflayer,
-                args.num_rnn_layer,
-                args.hand_size,
-                False,  # uniform priority
-            )
-        elif args.rnn_type == "gru":
-            learnable_agent = r2d2_gru.R2D2Agent(
-                (args.method == "vdn"),
-                args.multi_step,
-                args.gamma,
-                args.eta,
-                args.train_device,
-                games[0].feature_size(),
-                args.rnn_hid_dim,
-                games[0].num_action(),
-                args.num_fflayer,
-                args.num_rnn_layer,
-                args.hand_size,
-                False,  # uniform priority
-            ) 
+        rnn_type = args.rnn_type
+        rnn_hid_dim = args.rnn_hid_dim
+        num_fflayer = args.num_fflayer
+        num_rnn_layer = args.num_rnn_layer
+
+    if rnn_type == "lstm":
+        import r2d2_lstm as r2d2_learnable
+    elif rnn_type == "gru":
+        import r2d2_gru as r2d2_learnable
+
+    learnable_agent = r2d2_learnable.R2D2Agent(
+            (args.method == "vdn"),
+            args.multi_step,
+            args.gamma,
+            args.eta,
+            args.train_device,
+            games[0].feature_size(),
+            rnn_hid_dim,
+            games[0].num_action(),
+            num_fflayer,
+            num_rnn_layer,
+            args.hand_size,
+            False,  # uniform priority
+        )
 
     learnable_agent.sync_target_with_online()
 
@@ -247,34 +213,23 @@ if __name__ == "__main__":
             opp_model_args = {**json.load(f)}
 
         if opp_model_args['rnn_type'] == "lstm":
-            fixed_agent = r2d2_lstm.R2D2Agent(
-                (args.method == "vdn"),
-                args.multi_step,
-                args.gamma,
-                args.eta,
-                args.train_device,
-                games[0].feature_size(),
-                opp_model_args['rnn_hid_dim'],
-                games[0].num_action(),
-                opp_model_args['num_fflayer'],
-                opp_model_args['num_rnn_layer'],
-                args.hand_size,
-                False,  # uniform priority
-            )
+            import r2d2_lstm as r2d2_fixed
         elif opp_model_args['rnn_type'] == "gru":
-            fixed_agent = r2d2_gru.R2D2Agent(
-                (args.method == "vdn"),
-                args.multi_step,
-                args.gamma,
-                args.eta,
-                args.train_device,
-                games[0].feature_size(),
-                opp_model_args['rnn_hid_dim'],
-                games[0].num_action(),
-                opp_model_args['num_fflayer'],
-                opp_model_args['num_rnn_layer'],
-                args.hand_size,
-                False,  # uniform priority
+            import r2d2_gru as r2d2_fixed
+
+        fixed_agent = r2d2_fixed.R2D2Agent(
+            (args.method == "vdn"),
+            args.multi_step,
+            args.gamma,
+            args.eta,
+            args.train_device,
+            games[0].feature_size(),
+            opp_model_args['rnn_hid_dim'],
+            games[0].num_action(),
+            opp_model_args['num_fflayer'],
+            opp_model_args['num_rnn_layer'],
+            args.hand_size,
+            False,  # uniform priority
             )
         
         if opp_model:
@@ -579,3 +534,4 @@ if __name__ == "__main__":
             print("==========")
     
         episodic_memory.append(replay_buffer)
+##      add context.pause() here at the end of the task...
