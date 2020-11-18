@@ -148,24 +148,6 @@ if __name__ == "__main__":
     for ag1_idx, ag1 in enumerate(weight_1):
         ag1_name = ag1.split("/")[-1].split("_")[-1]
         act_epoch_cnt = int(ag1.split("/")[-1].split("_")[1][5:])
-
-
-    # ### this is for different zero-shot evaluations...
-    #     if ag1_name == "shot.pthw":
-    #         for fixed_agent_idx in range(len(args.weight_2)):
-    #             weight_files = [ag1, args.weight_2[fixed_agent_idx]]
-    #             mean_score, sem, perfect_rate = evaluate_legacy_model(weight_files, 1000, 1, 0, learnable_agent_args, num_run=5)
-    #             wandb.log({"epoch_zeroshot_"+str(fixed_agent_idx): act_epoch_cnt, "eval_score_zeroshot_"+str(fixed_agent_idx): mean_score, "perfect_zeroshot_"+str(fixed_agent_idx): perfect_rate, "sem_zeroshot_"+str(fixed_agent_idx):sem})
-    #     else:
-    #         ## for different few shot evaluations ... 
-    #         for i in range(len(args.weight_2)):
-    #             if ag1_name == str(i)+".pthw":
-    #                 weight_files = [ag1, args.weight_2[i]]
-
-    #         # print("weight ")
-    #         mean_score, sem, perfect_rate = evaluate_legacy_model(weight_files, 1000, 1, 0, learnable_agent_args, num_run=5)
-    #         wandb.log({"epoch_fewshot_"+ag1_name.split(".")[0]: act_epoch_cnt, "eval_score_fewshot_"+ag1_name.split(".")[0]: mean_score, "perfect_fewshot_"+ag1_name.split(".")[0]: perfect_rate, "sem_fewshot_"+ag1_name.split(".")[0]:sem})
-
         
         ### this is for different zero-shot evaluations...
         if ag1_name == "shot.pthw":
