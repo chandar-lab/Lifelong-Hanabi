@@ -53,22 +53,36 @@ def evaluate_legacy_model(
         hid_dim = 512
         output_dim = state_dict["fc_a.weight"].size()[0]
 
-        if i == 0:
+        learnable_pretrain = True
+        if i == 0 and learnable_agent_args['load_learnable_model'] != "":
             agent_args_file = learnable_agent_args['load_learnable_model'][:-4]+"txt"
+        elif i == 0:
+            learnable_pretrain = False
         else:
             agent_args_file = weight_file[:-4] + "txt"
 
-        with open(agent_args_file, 'r') as f:
-            agent_args = {**json.load(f)}
+        if learnable_pretrain == True:
+            with open(agent_args_file, 'r') as f:
+                agent_args = {**json.load(f)}
 
-        if agent_args['rnn_type'] == "lstm":
-            agent = r2d2_lstm.R2D2Agent(
-                False, 3, 0.999, 0.9, device, input_dim, agent_args['rnn_hid_dim'], output_dim, agent_args['num_fflayer'], agent_args['num_rnn_layer'], 5, False
-            ).to(device)
-        elif agent_args['rnn_type'] == "gru":
-            agent = r2d2_gru.R2D2Agent(
-                False, 3, 0.999, 0.9, device, input_dim, agent_args['rnn_hid_dim'], output_dim, agent_args['num_fflayer'], agent_args['num_rnn_layer'], 5, False
-            ).to(device)
+        if learnable_pretrain == False:
+            if learnable_agent_args['rnn_type'] == "lstm":
+                agent = r2d2_lstm.R2D2Agent(
+                False, 3, 0.999, 0.9, device, input_dim, learnable_agent_args['rnn_hid_dim'], output_dim, learnable_agent_args['num_fflayer'], learnable_agent_args['num_rnn_layer'], 5, False
+                ).to(device)
+            elif learnable_agent_args['rnn_type'] == "gru":
+                agent = r2d2_gru.R2D2Agent(
+                False, 3, 0.999, 0.9, device, input_dim, learnable_agent_args['rnn_hid_dim'], output_dim, learnable_agent_args['num_fflayer'], learnable_agent_args['num_rnn_layer'], 5, False
+                ).to(device)
+        elif learnable_pretrain  == True:
+            if agent_args['rnn_type'] == "lstm":
+                agent = r2d2_lstm.R2D2Agent(
+                    False, 3, 0.999, 0.9, device, input_dim, agent_args['rnn_hid_dim'], output_dim, agent_args['num_fflayer'], agent_args['num_rnn_layer'], 5, False
+                ).to(device)
+            elif agent_args['rnn_type'] == "gru":
+                agent = r2d2_gru.R2D2Agent(
+                    False, 3, 0.999, 0.9, device, input_dim, agent_args['rnn_hid_dim'], output_dim, agent_args['num_fflayer'], agent_args['num_rnn_layer'], 5, False
+                ).to(device)
 
         utils.load_weight(agent.online_net, weight_file, device)
         agents.append(agent)
@@ -136,12 +150,29 @@ if __name__ == "__main__":
         act_epoch_cnt = int(ag1.split("/")[-1].split("_")[1][5:])
 
 
-    ### this is for different zero-shot evaluations...
+    # ### this is for different zero-shot evaluations...
+    #     if ag1_name == "shot.pthw":
+    #         for fixed_agent_idx in range(len(args.weight_2)):
+    #             weight_files = [ag1, args.weight_2[fixed_agent_idx]]
+    #             mean_score, sem, perfect_rate = evaluate_legacy_model(weight_files, 1000, 1, 0, learnable_agent_args, num_run=5)
+    #             wandb.log({"epoch_zeroshot_"+str(fixed_agent_idx): act_epoch_cnt, "eval_score_zeroshot_"+str(fixed_agent_idx): mean_score, "perfect_zeroshot_"+str(fixed_agent_idx): perfect_rate, "sem_zeroshot_"+str(fixed_agent_idx):sem})
+    #     else:
+    #         ## for different few shot evaluations ... 
+    #         for i in range(len(args.weight_2)):
+    #             if ag1_name == str(i)+".pthw":
+    #                 weight_files = [ag1, args.weight_2[i]]
+
+    #         # print("weight ")
+    #         mean_score, sem, perfect_rate = evaluate_legacy_model(weight_files, 1000, 1, 0, learnable_agent_args, num_run=5)
+    #         wandb.log({"epoch_fewshot_"+ag1_name.split(".")[0]: act_epoch_cnt, "eval_score_fewshot_"+ag1_name.split(".")[0]: mean_score, "perfect_fewshot_"+ag1_name.split(".")[0]: perfect_rate, "sem_fewshot_"+ag1_name.split(".")[0]:sem})
+
+        
+        ### this is for different zero-shot evaluations...
         if ag1_name == "shot.pthw":
             for fixed_agent_idx in range(len(args.weight_2)):
                 weight_files = [ag1, args.weight_2[fixed_agent_idx]]
                 mean_score, sem, perfect_rate = evaluate_legacy_model(weight_files, 1000, 1, 0, learnable_agent_args, num_run=5)
-                wandb.log({"epoch_zeroshot_"+str(fixed_agent_idx): act_epoch_cnt, "eval_score_zeroshot_"+str(fixed_agent_idx): mean_score, "perfect_zeroshot_"+str(fixed_agent_idx): perfect_rate, "sem_zeroshot_"+str(fixed_agent_idx):sem})
+                wandb.log({"epoch_zeroshot": act_epoch_cnt, "eval_score_zeroshot_"+str(fixed_agent_idx): mean_score, "perfect_zeroshot_"+str(fixed_agent_idx): perfect_rate, "sem_zeroshot_"+str(fixed_agent_idx):sem})
         else:
             ## for different few shot evaluations ... 
             for i in range(len(args.weight_2)):
@@ -150,9 +181,7 @@ if __name__ == "__main__":
 
             # print("weight ")
             mean_score, sem, perfect_rate = evaluate_legacy_model(weight_files, 1000, 1, 0, learnable_agent_args, num_run=5)
-            wandb.log({"epoch_fewshot_"+ag1_name.split(".")[0]: act_epoch_cnt, "eval_score_fewshot_"+ag1_name.split(".")[0]: mean_score, "perfect_fewshot_"+ag1_name.split(".")[0]: perfect_rate, "sem_fewshot_"+ag1_name.split(".")[0]:sem})
-
-        
+            wandb.log({"epoch_fewshot": act_epoch_cnt, "eval_score_fewshot_"+ag1_name.split(".")[0]: mean_score, "perfect_fewshot_"+ag1_name.split(".")[0]: perfect_rate, "sem_fewshot_"+ag1_name.split(".")[0]:sem})
 
         
         
