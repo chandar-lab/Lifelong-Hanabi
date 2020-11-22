@@ -1,4 +1,3 @@
-#
 import os
 import time
 from collections import OrderedDict
@@ -160,10 +159,14 @@ class Tachometer:
     def start(self):
         self.t = time.time()
 
-    def lap(self, actors, replay_buffer, num_train, factor):
+    def lap(self, actors, replay_buffer, num_train, factor, selfplay=True):
         t = time.time() - self.t
         self.total_time += t
-        num_act = get_num_acts(actors)
+        if selfplay:
+            num_act = get_num_acts(actors)
+        else:
+            num_act = get_num_acts(actors) // len(actors)
+
         act_rate = factor * (num_act - self.num_act) / t
         num_buffer = replay_buffer.num_add()
         buffer_rate = factor * (num_buffer - self.num_buffer) / t
