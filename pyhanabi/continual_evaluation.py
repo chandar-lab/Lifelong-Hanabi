@@ -231,3 +231,4 @@ if __name__ == "__main__":
             for fixed_agent_idx in range(len(args.weight_2)):
                 prev_task_max[fixed_agent_idx] = prev_max[fixed_agent_idx]
                 prev_task_max_fs[fixed_agent_idx] = prev_max_fs[fixed_agent_idx]
+            all_done = 0
