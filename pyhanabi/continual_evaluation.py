@@ -1,13 +1,14 @@
-## evaluating all the checkpoints saved periodically: args.eval_freq
-# Copyright (c) Facebook, Inc. and its affiliates.
-# All rights reserved.
-#
-# This source code is licensed under the license found in the
-# LICENSE file in the root directory of this source tree.
-'''
+''' Evaluating all the checkpoints saved periodically during train args.eval_freq
+Usually done only in Mila cluster as we need wandb to log.
+Requires only 1 GPU.
 Sample usage: 
+python continual_evaluation.py 
+--weight_1_dir /miniscratch/akb/cont_hanabi_models/exps/ind_RB_few_shot_ER_noeval_easy 
+--weight_2 ../models/iql_2p/iql_2p_6.pthw ../models/iql_2p/iql_2p_11.pthw ../models/iql_2p/iql_2p_113.pthw ../models/iql_2p/iql_2p_210.pthw ../models/iql_2p/iql_2p_5.pthw 
+--num_player 2
+note the last arg of --weight_2 is the self-play that is the agent that was being trained.
 '''
-#
+
 import argparse
 import os
 import sys
@@ -20,8 +21,8 @@ sys.path.append(lib_path)
 
 import numpy as np
 import torch
-import r2d2_gru_unify as r2d2_gru
-import r2d2_lstm_unify as r2d2_lstm
+import r2d2_gru as r2d2_gru
+import r2d2_lstm as r2d2_lstm
 import utils
 from eval import evaluate
 
@@ -52,22 +53,37 @@ def evaluate_legacy_model(
         hid_dim = 512
         output_dim = state_dict["fc_a.weight"].size()[0]
 
-        if i == 0:
+        learnable_pretrain = True
+        if i == 0 and learnable_agent_args['load_learnable_model'] != "":
             agent_args_file = learnable_agent_args['load_learnable_model'][:-4]+"txt"
+        elif i == 0:
+            learnable_pretrain = False
         else:
             agent_args_file = weight_file[:-4] + "txt"
 
-        with open(agent_args_file, 'r') as f:
-            agent_args = {**json.load(f)}
+        if learnable_pretrain == True:
+            with open(agent_args_file, 'r') as f:
+                agent_args = {**json.load(f)}
 
-        if agent_args['rnn_type'] == "lstm":
-            agent = r2d2_lstm.R2D2Agent(
-                False, 3, 0.999, 0.9, device, input_dim, agent_args['rnn_hid_dim'], output_dim, agent_args['num_fflayer'], agent_args['num_rnn_layer'], 5, False
-            ).to(device)
-        elif agent_args['rnn_type'] == "gru":
-            agent = r2d2_gru.R2D2Agent(
-                False, 3, 0.999, 0.9, device, input_dim, agent_args['rnn_hid_dim'], output_dim, agent_args['num_fflayer'], agent_args['num_rnn_layer'], 5, False
-            ).to(device)
+        if learnable_pretrain == False:
+            rnn_type = learnable_agent_args['rnn_type']
+            rnn_hid_dim = learnable_agent_args['rnn_hid_dim']
+            num_fflayer = learnable_agent_args['num_fflayer']
+            num_rnn_layer = learnable_agent_args['num_rnn_layer']
+        elif learnable_pretrain == True:
+            rnn_type = agent_args['rnn_type']
+            rnn_hid_dim = agent_args['rnn_hid_dim']
+            num_fflayer = agent_args['num_fflayer']
+            num_rnn_layer = agent_args['num_rnn_layer']
+
+        if rnn_type == "lstm":
+            import r2d2_lstm as r2d2
+        elif rnn_type == "gru":
+            import r2d2_gru as r2d2 
+
+        agent = r2d2.R2D2Agent(
+        False, 3, 0.999, 0.9, device, input_dim, rnn_hid_dim, output_dim, num_fflayer, num_rnn_layer, 5, False
+        ).to(device)
 
         utils.load_weight(agent.online_net, weight_file, device)
         agents.append(agent)
@@ -107,51 +123,108 @@ if __name__ == "__main__":
     with open(cont_train_args_txt[0], 'r') as f:
             learnable_agent_args = {**json.load(f)}
 
+    if learnable_agent_args['load_learnable_model'] != "":
+        lr_str = learnable_agent_args['load_learnable_model'].split("/")[-1].split(".")[0]
+    else:
+        lr_str = "no_pretrain"
+    exp_name = lr_str+"_fixed_"+str(len(learnable_agent_args['load_fixed_models']))+"_"+learnable_agent_args['ll_algo'] 
 
-    rb_exp_name = int(learnable_agent_args['replay_buffer_size']) // 1000
-    lr_str = learnable_agent_args['load_learnable_model'].split("/")[-1].split(".")[0]
-    exp_name = lr_str+"_fixed_"+str(len(learnable_agent_args['load_fixed_models']))+"_ind_RB_"+learnable_agent_args['eval_method']+"_"+ str(rb_exp_name)+"k_"+learnable_agent_args['ll_algo']    
-    
     wandb.init(project="ContPlay_Hanabi_complete", name=exp_name)
     wandb.config.update(learnable_agent_args)
-
-    print("weights_1 is ", args.weight_1_dir)
-    print("weights_2 is ", args.weight_2)
 
     assert os.path.exists(args.weight_1_dir)    
     weight_1 = []
     weight_1 = glob.glob(args.weight_1_dir+"/*.pthw")
     weight_1.sort(key=os.path.getmtime)
 
-    print("ckpt files are ", weight_1)
-
     ## check if everything in weights_2 exist
     for ag2 in args.weight_2:
         assert os.path.exists(ag2)
-        # ag2_names.append(ag2.split("/")[2].split(".")[0])
+
+    cur_task = 0
+    prev_max = [0]*len(args.weight_2)
+    prev_task_max = [0]*len(args.weight_2)
+    prev_max_fs = [0]*len(args.weight_2)
+    prev_task_max_fs = [0]*len(args.weight_2)
+    avg_fs_score = 0
+    avg_fs_future_score = 0
+    avg_fs_forgetting = 0
 
     for ag1_idx, ag1 in enumerate(weight_1):
         ag1_name = ag1.split("/")[-1].split("_")[-1]
         act_epoch_cnt = int(ag1.split("/")[-1].split("_")[1][5:])
 
-
-    ### this is for different zero-shot evaluations...
+        ### this is for different zero-shot evaluations...
+        total_tasks = len(args.weight_2)
         if ag1_name == "shot.pthw":
+            avg_score = 0
+            avg_future_score = 0
+            avg_forgetting = 0
             for fixed_agent_idx in range(len(args.weight_2)):
                 weight_files = [ag1, args.weight_2[fixed_agent_idx]]
                 mean_score, sem, perfect_rate = evaluate_legacy_model(weight_files, 1000, 1, 0, learnable_agent_args, num_run=5)
-                wandb.log({"epoch_zeroshot_"+str(fixed_agent_idx): act_epoch_cnt, "eval_score_zeroshot_"+str(fixed_agent_idx): mean_score, "perfect_zeroshot_"+str(fixed_agent_idx): perfect_rate, "sem_zeroshot_"+str(fixed_agent_idx):sem})
+                if mean_score > prev_max[fixed_agent_idx]:
+                    prev_max[fixed_agent_idx] = mean_score
+                wandb.log({"epoch_zeroshot": act_epoch_cnt, "eval_score_zeroshot_"+str(fixed_agent_idx): mean_score, "perfect_zeroshot_"+str(fixed_agent_idx): perfect_rate, "sem_zeroshot_"+str(fixed_agent_idx):sem})
+                if fixed_agent_idx == cur_task:
+                    wandb.log({"epoch_zs_curtask": act_epoch_cnt, "eval_score_zs_curtask": mean_score, "perfect_zs_curtask": perfect_rate, "sem_zs_curtask":sem})
+                if fixed_agent_idx <= cur_task:
+                    avg_score += mean_score
+                if fixed_agent_idx > cur_task:
+                    avg_future_score += mean_score
+                if cur_task >  0:
+                    forgetting = prev_task_max[fixed_agent_idx] - mean_score
+                    if fixed_agent_idx < cur_task:
+                        avg_forgetting += forgetting
+                    wandb.log({"epoch_zs_forgetting": act_epoch_cnt, "forgetting_zs_"+str(fixed_agent_idx): forgetting})
+            avg_score = avg_score / (cur_task+1)
+            wandb.log({"epoch_zs_avg_score": act_epoch_cnt, "avg_zs_score": avg_score})
+            avg_future_score = avg_future_score / (total_tasks-(cur_task+1))
+            wandb.log({"epoch_zs_avg_score": act_epoch_cnt, "avg_future_zs_score": avg_future_score})
+            if cur_task > 0:
+                avg_forgetting = avg_forgetting / (cur_task)
+                wandb.log({"epoch_zs_avg_forgetting": act_epoch_cnt, "avg_zs_forgetting": avg_forgetting})
+
         else:
             ## for different few shot evaluations ... 
             for i in range(len(args.weight_2)):
                 if ag1_name == str(i)+".pthw":
                     weight_files = [ag1, args.weight_2[i]]
 
-            # print("weight ")
+            cur_ag_id = ag1_name.split(".")[0]
+
             mean_score, sem, perfect_rate = evaluate_legacy_model(weight_files, 1000, 1, 0, learnable_agent_args, num_run=5)
-            wandb.log({"epoch_fewshot_"+ag1_name.split(".")[0]: act_epoch_cnt, "eval_score_fewshot_"+ag1_name.split(".")[0]: mean_score, "perfect_fewshot_"+ag1_name.split(".")[0]: perfect_rate, "sem_fewshot_"+ag1_name.split(".")[0]:sem})
+            if mean_score > prev_max_fs[int(cur_ag_id)]:
+                prev_max_fs[int(cur_ag_id)] = mean_score 
 
-        
+            wandb.log({"epoch_fewshot": act_epoch_cnt, "eval_score_fewshot_"+cur_ag_id: mean_score, "perfect_fewshot_"+cur_ag_id: perfect_rate, "sem_fewshot_"+cur_ag_id:sem})
 
-        
-        
+            if int(cur_ag_id) <= cur_task:
+                avg_fs_score += mean_score
+            if int(cur_ag_id) > cur_task:
+                avg_fs_future_score += mean_score
+            if int(cur_ag_id) == cur_task:
+                avg_fs_score = avg_fs_score / (cur_task+1)
+                avg_fs_future_score = avg_fs_future_score / (total_tasks-(cur_task+1))
+                wandb.log({"epoch_fs_curtask": act_epoch_cnt, "eval_score_fs_curtask": mean_score, "perfect_fs_curtask": perfect_rate, "sem_fs_curtask":sem})
+                wandb.log({"epoch_fs_avgscore": act_epoch_cnt, "avg_fs_score": avg_fs_score})
+                wandb.log({"epoch_fs_avgscore": act_epoch_cnt, "avg_fs_future_score": avg_fs_future_score})
+                avg_fs_score = 0
+                avg_fs_future_score = 0
+                if cur_task > 0:
+                    avg_fs_forgetting = avg_forgetting / cur_task
+                    wandb.log({"epoch_fs_avg_forgetting": act_epoch_cnt, "avg_fs_forgetting": avg_fs_forgetting})
+                    avg_fs_forgetting = 0
+
+
+            if cur_task > 0:
+                forgetting_fs = prev_task_max_fs[int(cur_ag_id)] - mean_score
+                if int(cur_ag_id) < cur_task:
+                    avg_fs_forgetting += forgetting_fs
+                wandb.log({"epoch_fs_forgetting": act_epoch_cnt, "forgetting_fs_"+cur_ag_id: forgetting_fs})
+
+        if act_epoch_cnt >= learnable_agent_args['num_epoch']*(cur_task+1):
+            cur_task += 1
+            for fixed_agent_idx in range(len(args.weight_2)):
+                prev_task_max[fixed_agent_idx] = prev_max[fixed_agent_idx]
+                prev_task_max_fs[fixed_agent_idx] = prev_max_fs[fixed_agent_idx]
