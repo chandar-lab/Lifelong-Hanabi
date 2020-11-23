@@ -149,6 +149,7 @@ if __name__ == "__main__":
     avg_fs_score = 0
     avg_fs_future_score = 0
     avg_fs_forgetting = 0
+    all_done = 0
 
     for ag1_idx, ag1 in enumerate(weight_1):
         ag1_name = ag1.split("/")[-1].split("_")[-1]
@@ -157,6 +158,7 @@ if __name__ == "__main__":
         ### this is for different zero-shot evaluations...
         total_tasks = len(args.weight_2)
         if ag1_name == "shot.pthw":
+            all_done += 1
             avg_score = 0
             avg_future_score = 0
             avg_forgetting = 0
@@ -180,7 +182,7 @@ if __name__ == "__main__":
             avg_score = avg_score / (cur_task+1)
             wandb.log({"epoch_zs_avg_score": act_epoch_cnt, "avg_zs_score": avg_score})
             avg_future_score = avg_future_score / (total_tasks-(cur_task+1))
-            wandb.log({"epoch_zs_avg_score": act_epoch_cnt, "avg_future_zs_score": avg_future_score})
+            wandb.log({"epoch_zs_avg_future_score": act_epoch_cnt, "avg_future_zs_score": avg_future_score})
             if cur_task > 0:
                 avg_forgetting = avg_forgetting / (cur_task)
                 wandb.log({"epoch_zs_avg_forgetting": act_epoch_cnt, "avg_zs_forgetting": avg_forgetting})
@@ -189,6 +191,7 @@ if __name__ == "__main__":
             ## for different few shot evaluations ... 
             for i in range(len(args.weight_2)):
                 if ag1_name == str(i)+".pthw":
+                    all_done += 1
                     weight_files = [ag1, args.weight_2[i]]
 
             cur_ag_id = ag1_name.split(".")[0]
@@ -208,7 +211,7 @@ if __name__ == "__main__":
                 avg_fs_future_score = avg_fs_future_score / (total_tasks-(cur_task+1))
                 wandb.log({"epoch_fs_curtask": act_epoch_cnt, "eval_score_fs_curtask": mean_score, "perfect_fs_curtask": perfect_rate, "sem_fs_curtask":sem})
                 wandb.log({"epoch_fs_avgscore": act_epoch_cnt, "avg_fs_score": avg_fs_score})
-                wandb.log({"epoch_fs_avgscore": act_epoch_cnt, "avg_fs_future_score": avg_fs_future_score})
+                wandb.log({"epoch_fs_avg_future_score": act_epoch_cnt, "avg_fs_future_score": avg_fs_future_score})
                 avg_fs_score = 0
                 avg_fs_future_score = 0
                 if cur_task > 0:
@@ -223,7 +226,7 @@ if __name__ == "__main__":
                     avg_fs_forgetting += forgetting_fs
                 wandb.log({"epoch_fs_forgetting": act_epoch_cnt, "forgetting_fs_"+cur_ag_id: forgetting_fs})
 
-        if act_epoch_cnt >= learnable_agent_args['num_epoch']*(cur_task+1):
+        if act_epoch_cnt >= learnable_agent_args['num_epoch']*(cur_task+1) and all_done == total_tasks+1:
             cur_task += 1
             for fixed_agent_idx in range(len(args.weight_2)):
                 prev_task_max[fixed_agent_idx] = prev_max[fixed_agent_idx]
