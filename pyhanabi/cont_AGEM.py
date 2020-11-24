@@ -402,21 +402,22 @@ if __name__ == "__main__":
                         )
                         episodic_memory[prev_task_idx].update_priority(p)
 
+                if args.ll_algo == "AGEM":
                 ## previous tasks average loss
-                if task_idx > 0:
-                    loss_replay, _ = learnable_agent.loss(b, args.pred_weight, stat)
-                    loss_replay = (loss_replay * w).mean()
-                    loss_replay.backward()
+                    if task_idx > 0:
+                        loss_replay, _ = learnable_agent.loss(b, args.pred_weight, stat)
+                        loss_replay = (loss_replay * w).mean()
+                        loss_replay.backward()
 
-                    ## reorganize the gradient of replayed batch as a single vector
-                    grad_rep = []
-                    for p in learnable_agent.online_net.parameters():
-                        if p.requires_grad:
-                            if p.grad is not None:
-                                grad_rep.append(p.grad.view(-1))
-                    grad_rep = torch.cat(grad_rep)
-                    ## reset gradients (with A-GEM the gradients of replayed batch should only be used as inequality constraints)
-                    optim.zero_grad()
+                        ## reorganize the gradient of replayed batch as a single vector
+                        grad_rep = []
+                        for p in learnable_agent.online_net.parameters():
+                            if p.requires_grad:
+                                if p.grad is not None:
+                                    grad_rep.append(p.grad.view(-1))
+                        grad_rep = torch.cat(grad_rep)
+                        ## reset gradients (with A-GEM the gradients of replayed batch should only be used as inequality constraints)
+                        optim.zero_grad()
 
 
                 ## current task loss
@@ -429,30 +430,31 @@ if __name__ == "__main__":
                 loss_cur = (loss_cur * weight).mean()
                 loss_cur.backward()
 
-                if task_idx > 0:
-                    ## reorganize the gradient of the current batch as a single vector
-                    grad_cur = []
-                    for i,p in enumerate(list(learnable_agent.online_net.parameters())):
-                        if p.requires_grad:
-                            if p.grad is not None:
-                                grad_cur.append(p.grad.view(-1))
-                    grad_cur = torch.cat(grad_cur)
-
-                    ## adding A-GEM projection inequality.
-                    angle = (grad_cur*grad_rep).sum()
-                    if angle < 0:
-                        cnt_angle_less += 1
-                    # -if violated, project the gradient of the current batch onto the gradient of the replayed batch ...
-                        length_rep = (grad_rep*grad_rep).sum()
-                        grad_proj = grad_cur-(angle/length_rep)*grad_rep
-                        # -...and replace all the gradients within the model with this projected gradient
-                        index = 0
-                        for p in learnable_agent.online_net.parameters():
+                if args.ll_algo == "AGEM":
+                    if task_idx > 0:
+                        ## reorganize the gradient of the current batch as a single vector
+                        grad_cur = []
+                        for i,p in enumerate(list(learnable_agent.online_net.parameters())):
                             if p.requires_grad:
                                 if p.grad is not None:
-                                    n_param = p.numel()  # number of parameters in [p]
-                                    p.grad.copy_(grad_proj[index:index+n_param].view_as(p))
-                                    index += n_param
+                                    grad_cur.append(p.grad.view(-1))
+                        grad_cur = torch.cat(grad_cur)
+
+                        ## adding A-GEM projection inequality.
+                        angle = (grad_cur*grad_rep).sum()
+                        if angle < 0:
+                            cnt_angle_less += 1
+                        # -if violated, project the gradient of the current batch onto the gradient of the replayed batch ...
+                            length_rep = (grad_rep*grad_rep).sum()
+                            grad_proj = grad_cur-(angle/length_rep)*grad_rep
+                            # -...and replace all the gradients within the model with this projected gradient
+                            index = 0
+                            for p in learnable_agent.online_net.parameters():
+                                if p.requires_grad:
+                                    if p.grad is not None:
+                                        n_param = p.numel()  # number of parameters in [p]
+                                        p.grad.copy_(grad_proj[index:index+n_param].view_as(p))
+                                        index += n_param
 
                 torch.cuda.synchronize()
                 stopwatch.time("forward & backward")
@@ -481,10 +483,10 @@ if __name__ == "__main__":
             stopwatch.summary()
             stat.summary(epoch)
 
-            context.pause()
             eval_seed = (9917 + epoch * 999999) % 7777777
             
             if (epoch+1) % args.eval_freq == 0:
+                context.pause()
                 for eval_fixed_ag_idx, eval_fixed_agent in enumerate(fixed_agents + [fixed_learnable_agent]):
                     print("evaluating learnable agent with fixed agent %d "%eval_fixed_ag_idx)
 
