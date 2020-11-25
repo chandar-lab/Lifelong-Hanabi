@@ -162,9 +162,11 @@ if __name__ == "__main__":
             avg_score = 0
             avg_future_score = 0
             avg_forgetting = 0
+
             for fixed_agent_idx in range(len(args.weight_2)):
                 weight_files = [ag1, args.weight_2[fixed_agent_idx]]
                 mean_score, sem, perfect_rate = evaluate_legacy_model(weight_files, 1000, 1, 0, learnable_agent_args, num_run=5)
+
                 if mean_score > prev_max[fixed_agent_idx]:
                     prev_max[fixed_agent_idx] = mean_score
                 wandb.log({"epoch_zeroshot": act_epoch_cnt, "eval_score_zeroshot_"+str(fixed_agent_idx): mean_score, "perfect_zeroshot_"+str(fixed_agent_idx): perfect_rate, "sem_zeroshot_"+str(fixed_agent_idx):sem})
@@ -201,7 +203,7 @@ if __name__ == "__main__":
                 prev_max_fs[int(cur_ag_id)] = mean_score 
 
             wandb.log({"epoch_fewshot": act_epoch_cnt, "eval_score_fewshot_"+cur_ag_id: mean_score, "perfect_fewshot_"+cur_ag_id: perfect_rate, "sem_fewshot_"+cur_ag_id:sem})
-
+            
             if int(cur_ag_id) <= cur_task:
                 avg_fs_score += mean_score
             if int(cur_ag_id) > cur_task:
@@ -226,7 +228,7 @@ if __name__ == "__main__":
                     avg_fs_forgetting += forgetting_fs
                 wandb.log({"epoch_fs_forgetting": act_epoch_cnt, "forgetting_fs_"+cur_ag_id: forgetting_fs})
 
-        if act_epoch_cnt >= learnable_agent_args['num_epoch']*(cur_task+1) and all_done == total_tasks+1:
+        if act_epoch_cnt >= learnable_agent_args['num_epoch']*(cur_task+1) and all_done%(total_tasks+1) == 0:
             cur_task += 1
             for fixed_agent_idx in range(len(args.weight_2)):
                 prev_task_max[fixed_agent_idx] = prev_max[fixed_agent_idx]
