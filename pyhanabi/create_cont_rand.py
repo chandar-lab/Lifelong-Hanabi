@@ -86,7 +86,7 @@ class ActGroup:
         replay_buffer,
     ):
         self.devices = devices.split(",")
-        self.flag = np.random.randint(0, num_player)
+        self.flags = []
         self.model_runners = []
         for dev in self.devices:
             learnable_runner = rela.BatchRunner(
@@ -95,10 +95,13 @@ class ActGroup:
             fixed_runner = rela.BatchRunner(
                 agent_list[1].clone(dev), dev, 100, ["act", "compute_priority"]
             )
-            if self.flag == 0:
+            flag = np.random.randint(0, num_player)
+            if flag == 0:
                 self.model_runners.append([learnable_runner, fixed_runner])
-            elif self.flag == 1:
+            elif flag == 1:
                 self.model_runners.append([fixed_runner, learnable_runner])
+            
+            self.flags.append(flag)
 
         self.num_runners = len(self.model_runners)
 
@@ -142,9 +145,9 @@ class ActGroup:
             runner[1].start()
 
     def update_model(self, agent):
-        for runner in self.model_runners:
-            if self.flag == 0:
+        for idx, runner in enumerate(self.model_runners):
+            if self.flags[idx] == 0:
                 runner[0].update_model(agent)
-            elif self.flag == 1:
+            elif self.flags[idx] == 1:
                 runner[1].update_model(agent)
 
