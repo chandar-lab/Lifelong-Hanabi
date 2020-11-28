@@ -118,10 +118,28 @@ if __name__ == "__main__":
     parser.add_argument("--num_player", default=None, type=int, required=True)
     args = parser.parse_args()  
 
+    final_models_dir = args.weight_1_dir + "_final_eval_models"
+
+    if not os.path.exists(final_models_dir):
+        os.makedirs(final_models_dir)
+
     cont_train_args_txt = glob.glob(args.weight_1_dir+"/*.txt")
+
+    # move cont_args.txt to final_models_dir
+    move_cont_args = "cp " + cont_train_args_txt[0] + " " +final_models_dir+"/"
+    os.system(move_cont_args)
 
     with open(cont_train_args_txt[0], 'r') as f:
             learnable_agent_args = {**json.load(f)}
+
+    ## parsing train log for logging total steps
+    cont_train_log = glob.glob(args.weight_1_dir+"/*.log")
+    with open(cont_train_log[0], 'r') as f:
+        print(f.readlines())
+
+    ## move learnable model to final_models_dir
+    move_model_0 = "cp " + learnable_agent_args['load_learnable_model'] + " " + final_models_dir+"/"+"model_epoch0_zero_shot.pthw"
+    os.system(move_model_0)
 
     if learnable_agent_args['load_learnable_model'] != "":
         lr_str = learnable_agent_args['load_learnable_model'].split("/")[-1].split(".")[0]
@@ -154,6 +172,12 @@ if __name__ == "__main__":
     for ag1_idx, ag1 in enumerate(weight_1):
         ag1_name = ag1.split("/")[-1].split("_")[-1]
         act_epoch_cnt = int(ag1.split("/")[-1].split("_")[1][5:])
+        
+        ### move zs ckpts after every task to final models dir
+        if act_epoch_cnt % int(learnable_agent_args['num_epoch']) == 0:
+            if ag1_name == "shot.pthw":
+                move_zs_ckpt = "cp "+ag1+" " + final_models_dir +"/"
+                os.system(move_zs_ckpt)
 
         ### this is for different zero-shot evaluations...
         total_tasks = len(args.weight_2)
