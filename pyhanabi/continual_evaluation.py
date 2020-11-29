@@ -88,11 +88,19 @@ def evaluate_legacy_model(
         utils.load_weight(agent.online_net, weight_file, device)
         agents.append(agent)
 
+
     scores = []
     perfect = 0
     for i in range(num_run):
+        flag = np.random.randint(0, num_player)
+
+        if flag == 0:
+            new_agents = [agents[0], agents[1]]
+        elif flag == 1:
+            new_agents = [agents[1], agents[0]]
+
         _, _, score, p = evaluate(
-            agents,
+            new_agents,
             num_game,
             num_game * i + seed,
             bomb,
@@ -132,10 +140,25 @@ if __name__ == "__main__":
     with open(cont_train_args_txt[0], 'r') as f:
             learnable_agent_args = {**json.load(f)}
 
-    ## parsing train log for logging total steps
-    cont_train_log = glob.glob(args.weight_1_dir+"/*.log")
-    with open(cont_train_log[0], 'r') as f:
-        print(f.readlines())
+    ## TODO: still needs work parsing train log for logging total steps
+    # cont_train_log = glob.glob(args.weight_1_dir+"/*.log")
+    # with open(cont_train_log[0], 'r') as f:
+    #     act_steps_lns = []
+    #     for ln in f:
+    #         if ln.startswith("Total Sample:"):
+    #             act_steps_lns.append(ln)
+
+    # act_steps_0 = act_steps_lns[25].split(" ")[-1]
+    # print("epoch 1 act samples is ", act_steps_0)
+    # for i in range(len(act_steps_0)):
+    #     print("act_steps_0 ", i, " is ", act_steps_0[i])
+
+    # if act_steps_0[-2] == "K":
+    #     print("act steps 0 :-2 is ", float(act_steps_0[:-2]))
+    #     print("act steps 0 is ", float(act_steps_0[:-2])*float(1000))
+    # elif act_steps_0[-2] == "M":
+    #     print("act steps 0 :-2 is ", float(act_steps_0[:-2]))
+    #     print("act steps 0 is ", float(act_steps_0[:-2])*float(1000000))
 
     ## move learnable model to final_models_dir
     move_model_0 = "cp " + learnable_agent_args['load_learnable_model'] + " " + final_models_dir+"/"+"model_epoch0_zero_shot.pthw"
@@ -189,7 +212,7 @@ if __name__ == "__main__":
 
             for fixed_agent_idx in range(len(args.weight_2)):
                 weight_files = [ag1, args.weight_2[fixed_agent_idx]]
-                mean_score, sem, perfect_rate = evaluate_legacy_model(weight_files, 1000, 1, 0, learnable_agent_args, num_run=5)
+                mean_score, sem, perfect_rate = evaluate_legacy_model(weight_files, 1000, 1, 0, learnable_agent_args, num_run=10)
 
                 if mean_score > prev_max[fixed_agent_idx]:
                     prev_max[fixed_agent_idx] = mean_score
@@ -222,7 +245,7 @@ if __name__ == "__main__":
 
             cur_ag_id = ag1_name.split(".")[0]
 
-            mean_score, sem, perfect_rate = evaluate_legacy_model(weight_files, 1000, 1, 0, learnable_agent_args, num_run=5)
+            mean_score, sem, perfect_rate = evaluate_legacy_model(weight_files, 1000, 1, 0, learnable_agent_args, num_run=10)
             if mean_score > prev_max_fs[int(cur_ag_id)]:
                 prev_max_fs[int(cur_ag_id)] = mean_score 
 
