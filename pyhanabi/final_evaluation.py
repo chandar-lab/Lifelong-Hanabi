@@ -92,8 +92,15 @@ def evaluate_legacy_model(
     scores = []
     perfect = 0
     for i in range(num_run):
+        flag = np.random.randint(0, num_player)
+
+        if flag == 0:
+            new_agents = [agents[0], agents[1]]
+        elif flag == 1:
+            new_agents = [agents[1], agents[0]]
+
         _, _, score, p = evaluate(
-            agents,
+            new_agents,
             num_game,
             num_game * i + seed,
             bomb,
@@ -151,7 +158,7 @@ if __name__ == "__main__":
         if ag1_name == "shot.pthw":
             for fixed_agent_idx in range(len(args.weight_2)):
                 weight_files = [ag1, args.weight_2[fixed_agent_idx]]
-                mean_score, sem, perfect_rate = evaluate_legacy_model(weight_files, 1000, 1, 0, learnable_agent_args, num_run=5)
+                mean_score, sem, perfect_rate = evaluate_legacy_model(weight_files, 1000, 1, 0, learnable_agent_args, num_run=10)
                 wandb.log({"epoch_zeroshot": act_epoch_cnt, "final_eval_score_zeroshot_"+str(fixed_agent_idx): mean_score, "perfect_zeroshot_"+str(fixed_agent_idx): perfect_rate, "sem_zeroshot_"+str(fixed_agent_idx):sem})
         else:
             ## for different few shot evaluations ... 
@@ -159,7 +166,7 @@ if __name__ == "__main__":
                 if ag1_name == str(i)+".pthw":
                     weight_files = [ag1, args.weight_2[i]]
 
-            mean_score, sem, perfect_rate = evaluate_legacy_model(weight_files, 1000, 1, 0, learnable_agent_args, num_run=5)
+            mean_score, sem, perfect_rate = evaluate_legacy_model(weight_files, 1000, 1, 0, learnable_agent_args, num_run=10)
             wandb.log({"epoch_fewshot": act_epoch_cnt, "final_eval_score_fewshot_"+ag1_name.split(".")[0]: mean_score, "perfect_fewshot_"+ag1_name.split(".")[0]: perfect_rate, "sem_fewshot_"+ag1_name.split(".")[0]:sem})
 
         
