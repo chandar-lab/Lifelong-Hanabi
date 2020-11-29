@@ -1,3 +1,4 @@
+#
 import os
 import time
 from collections import OrderedDict
@@ -159,10 +160,10 @@ class Tachometer:
     def start(self):
         self.t = time.time()
 
-    def lap(self, actors, replay_buffer, num_train, factor, selfplay=True):
+    def lap(self, actors, replay_buffer, num_train, factor, centralized=True):
         t = time.time() - self.t
         self.total_time += t
-        if selfplay:
+        if centralized:
             num_act = get_num_acts(actors)
         else:
             num_act = get_num_acts(actors) // len(actors)
@@ -231,7 +232,7 @@ def load_weight(model, weight_file, device):
     # if "pred.weight" in state_dict:
     #     state_dict.pop("pred.bias")
     #     state_dict.pop("pred.weight")
-
+    # print("source state dict ", source_state_dict.keys())
     model.load_state_dict(source_state_dict)
     return
 
