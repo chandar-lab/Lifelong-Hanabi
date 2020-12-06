@@ -2,12 +2,13 @@
 Usually done only in Mila cluster as we need wandb to log.
 Requires only 1 GPU.
 Please ignore ./models/iql_2p/iql_2p_228.pthw for the final evaluation ...
-Sample usage: 
+Sample usage: (also check wandb for final_evaluation usage)
 python final_evaluation.py 
 --weight_1_dir /miniscratch/akb/cont_hanabi_models/exps/ind_RB_few_shot_ER_noeval_easy 
 --weight_2 ../models/iql_2p/iql_2p_6.pthw ../models/iql_2p/iql_2p_11.pthw ../models/iql_2p/iql_2p_113.pthw ../models/iql_2p/iql_2p_210.pthw ../models/iql_2p/iql_2p_5.pthw 
 --num_player 2
 note the last arg of --weight_2 is the self-play that is the agent that was being trained.
+In order to do the final evaluation of OP/ SAD; just move the checkpoint iql_2p_[seed].pthw and rename it as model_epoch2000_zero_shot.pthw
 '''
 
 import argparse
@@ -52,8 +53,6 @@ def evaluate_legacy_model(
         input_dim = state_dict["net.0.weight"].size()[1]
         hid_dim = 512
         output_dim = state_dict["fc_a.weight"].size()[0]
-
-        print("weight file is ", weight_file)
 
         learnable_pretrain = False
         no_CL = False
@@ -170,10 +169,7 @@ if __name__ == "__main__":
 
     for ag1_idx, ag1 in enumerate(weight_1):
         ag1_name = ag1.split("/")[-1].split("_")[-1]
-        print("ag1 is ", ag1)
-        print("ag1_name is ", ag1_name)
         act_epoch_cnt = int(ag1.split("/")[-1].split("_")[1][5:])
-        print("act epoch cnt is ", act_epoch_cnt)
 
         ### this is for different zero-shot evaluations...
         if ag1_name == "shot.pthw":
