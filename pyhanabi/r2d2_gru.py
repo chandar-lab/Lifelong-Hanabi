@@ -388,7 +388,7 @@ class R2D2Agent(torch.jit.ScriptModule):
         stat["aux1"].feed(avg_xent1)
         return pred_loss1
 
-    def aux_task_vdn(self, lstm_o, hand, t, seq_len, rl_loss_size, stat):
+    def aux_task_vdn(self, lstm_o, hand, seq_len, rl_loss_size, stat):
         """1st and 2nd order aux task used in VDN"""
         seq_size, bsize, num_player, _ = hand.size()
         own_hand = hand.view(seq_size, bsize, num_player, self.online_net.hand_size, 3)
@@ -432,7 +432,6 @@ class R2D2Agent(torch.jit.ScriptModule):
                 pred_loss1  = self.aux_task_vdn(
                     lstm_o,
                     batch.obs["own_hand"],
-                    batch.obs["temperature"],
                     batch.seq_len,
                     rl_loss.size(),
                     stat,
