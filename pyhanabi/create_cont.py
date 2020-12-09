@@ -83,11 +83,14 @@ class ActGroup:
         eta,
         max_len,
         num_player,
+        is_rand,
         replay_buffer,
     ):
         self.devices = devices.split(",")
-
+        self.flags = []
         self.model_runners = []
+        self.is_rand = is_rand
+        
         for dev in self.devices:
             learnable_runner = rela.BatchRunner(
                 agent_list[0].clone(dev), dev, 100, ["act", "compute_priority"]
@@ -95,12 +98,18 @@ class ActGroup:
             fixed_runner = rela.BatchRunner(
                 agent_list[1].clone(dev), dev, 100, ["act", "compute_priority"]
             )
-            self.model_runners.append([learnable_runner, fixed_runner])
+            if self.is_rand:
+                flag = np.random.randint(0, num_player)
+                if flag == 0:
+                    self.model_runners.append([learnable_runner, fixed_runner])
+                elif flag == 1:
+                    self.model_runners.append([fixed_runner, learnable_runner])
+
+                self.flags.append(flag)
 
         self.num_runners = len(self.model_runners)
 
         self.actors = []
-        self.eval_actors = []
 ## TODO: how to modify VDN to incorporate fixed and learnable actors... 
         if method == "vdn":
             for i in range(num_thread):
@@ -140,5 +149,11 @@ class ActGroup:
             runner[1].start()
 
     def update_model(self, agent):
-        for runner in self.model_runners:
-            runner[0].update_model(agent)
+        for idx, runner in enumerate(self.model_runners):
+            if self.is_rand:
+                if self.flags[idx] == 0:
+                    runner[0].update_model(agent)
+                elif self.flags[idx] == 1:
+                    runner[1].update_model(agent)
+            else:
+                runner[0].update_model(agent)

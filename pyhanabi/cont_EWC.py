@@ -37,6 +37,7 @@ def parse_args():
     parser.add_argument("--train_bomb", type=int, default=0)
     parser.add_argument("--eval_bomb", type=int, default=0)
     parser.add_argument("--sad", type=int, default=0)
+    parser.add_argument("--is_rand", action="store_true", default=True)
     parser.add_argument("--num_player", type=int, default=2)
     parser.add_argument("--hand_size", type=int, default=5)
 
@@ -296,6 +297,7 @@ if __name__ == "__main__":
             args.eta,
             args.max_len,
             args.num_player,
+            args.is_rand,
             replay_buffer,
         )
 
@@ -311,10 +313,6 @@ if __name__ == "__main__":
 
         print("Success, Done")
         print("=======================")
-
-        frame_stat = dict()
-        frame_stat["num_acts"] = 0
-        frame_stat["num_buffer"] = 0
 
         stat = common_utils.MultiCounter(args.save_dir)
         tachometer = utils.Tachometer()
@@ -379,8 +377,11 @@ if __name__ == "__main__":
 
             count_factor = args.num_player if args.method == "vdn" else 1
             print("EPOCH: %d" % total_epochs)
+            ## this is not entirely true because we randomize the agents ... 
+            learnable_agent_actors = [x[0] for x in act_group.actors]
+
             tachometer.lap(
-                act_group.actors, replay_buffer, args.epoch_len * args.batchsize, count_factor
+                learnable_agent_actors, replay_buffer, args.epoch_len * args.batchsize, count_factor
             )
             stopwatch.summary()
             stat.summary(epoch)
@@ -434,6 +435,7 @@ if __name__ == "__main__":
                             args.eta,
                             args.max_len,
                             args.num_player,
+                            args.is_rand,
                             eval_replay_buffer,
                         )
                         eval_context, eval_threads = create_threads(
@@ -444,7 +446,7 @@ if __name__ == "__main__":
                         while eval_replay_buffer.size() < args.eval_burn_in_frames:
                             print("warming up replay buffer:", eval_replay_buffer.size())
                             time.sleep(1)
-                        eval_tachometer = utils.Tachometer()
+                        eval_tachometer = utils.Tachometer(iseval=True)
                         eval_stat = common_utils.MultiCounter(args.save_dir)
 
                         for eval_epoch in range(args.eval_num_epoch):
@@ -487,7 +489,9 @@ if __name__ == "__main__":
 
                                 eval_stat["loss"].feed(loss.detach().item())
                                 eval_stat["grad_norm"].feed(g_norm.detach().item())
-                            eval_tachometer.lap(eval_act_group.actors, eval_replay_buffer, args.eval_epoch_len * args.batchsize, count_factor)
+
+                            eval_learnable_agent_actors = [x[0] for x in eval_act_group.actors]
+                            eval_tachometer.lap(eval_learnable_agent_actors, eval_replay_buffer, args.eval_epoch_len * args.batchsize, count_factor)
                             eval_stat.summary(eval_epoch)
                         eval_context.pause()
                         fs_force_save_name = "model_epoch%d_few_shot_%d" % (total_epochs, eval_fixed_ag_idx)

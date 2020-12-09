@@ -150,43 +150,58 @@ def log_explore_ratio(games, expected_eps):
 
 
 class Tachometer:
-    def __init__(self):
+    def __init__(self, iseval=False):
         self.num_act = 0
         self.num_buffer = 0
         self.num_train = 0
         self.t = None
         self.total_time = 0
+        self.iseval = iseval
 
     def start(self):
         self.t = time.time()
 
-    def lap(self, actors, replay_buffer, num_train, factor, centralized=True):
+    def lap(self, actors, replay_buffer, num_train, factor):
         t = time.time() - self.t
         self.total_time += t
-        if centralized:
-            num_act = get_num_acts(actors)
-        else:
-            num_act = get_num_acts(actors) // len(actors)
-
+        num_act = get_num_acts(actors)
         act_rate = factor * (num_act - self.num_act) / t
         num_buffer = replay_buffer.num_add()
         buffer_rate = factor * (num_buffer - self.num_buffer) / t
         train_rate = factor * num_train / t
-        print(
+        if self.iseval:
+            print(
+                "Eval Speed: train: %.1f, act: %.1f, buffer_add: %.1f, buffer_size: %d"
+                % (train_rate, act_rate, buffer_rate, replay_buffer.size())
+            )
+        else:
+            print(
             "Speed: train: %.1f, act: %.1f, buffer_add: %.1f, buffer_size: %d"
             % (train_rate, act_rate, buffer_rate, replay_buffer.size())
         )
         self.num_act = num_act
         self.num_buffer = num_buffer
         self.num_train += num_train
-        print(
+        if self.iseval:
+            print(
+                "Eval Total Time: %s, %ds"
+                % (common_utils.sec2str(self.total_time), self.total_time)
+            )
+        else:
+            print(
             "Total Time: %s, %ds"
             % (common_utils.sec2str(self.total_time), self.total_time)
-        )
-        print(
-            "Total Sample: train: %s, act: %s"
+            )
+        if self.iseval:
+            print(
+            "Eval Total Sample: train: %s, act: %s"
             % (common_utils.num2str(self.num_train), common_utils.num2str(self.num_act))
-        )
+            )
+        else:
+            print(
+                "Total Sample: train: %s, act: %s"
+                % (common_utils.num2str(self.num_train), common_utils.num2str(self.num_act))
+            )
 
     def lap2(self, actors, num_buffer, num_train):
         t = time.time() - self.t
