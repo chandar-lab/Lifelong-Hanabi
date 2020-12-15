@@ -106,6 +106,8 @@ class ActGroup:
                     self.model_runners.append([fixed_runner, learnable_runner])
 
                 self.flags.append(flag)
+            else:
+                self.model_runners.append([learnable_runner, fixed_runner])
 
         self.num_runners = len(self.model_runners)
 
