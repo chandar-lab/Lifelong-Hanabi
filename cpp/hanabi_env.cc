@@ -115,6 +115,7 @@ std::tuple<rela::TensorDict, float, bool> HanabiEnv::step(
 rela::TensorDict HanabiEnv::computeFeatureAndLegalMove(
     const std::unique_ptr<hle::HanabiState>& cloneState) {
   std::vector<torch::Tensor> privS;
+  std::vector<torch::Tensor> privS_gen;
   // std::vector<torch::Tensor> publS;
   // std::vector<torch::Tensor> superS;
   std::vector<torch::Tensor> legalMove;
@@ -150,6 +151,8 @@ rela::TensorDict HanabiEnv::computeFeatureAndLegalMove(
         colorPermutes_[i],
         invColorPermutes_[i],
         false);
+
+    privS_gen.push_back(torch::tensor(vS));
 
     if (sad_) {
       assert(cloneState != nullptr);
@@ -196,6 +199,7 @@ rela::TensorDict HanabiEnv::computeFeatureAndLegalMove(
 
   rela::TensorDict dict = {
       {"priv_s", torch::stack(privS, 0)},
+      {"priv_s_gen", torch::stack(privS_gen, 0)},
       {"legal_move", torch::stack(legalMove, 0)},
       {"eps", torch::tensor(playerEps_)},
       {"own_hand", torch::stack(ownHand, 0)},
