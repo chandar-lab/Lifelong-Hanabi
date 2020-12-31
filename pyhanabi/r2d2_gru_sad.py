@@ -22,48 +22,46 @@ class R2D2Net(torch.jit.ScriptModule):
 
         self.net = nn.Sequential(*layers)
 
-        self.lstm = nn.LSTM(
+        self.gru = nn.GRU(
             self.hid_dim,
             self.hid_dim,
             num_layers=self.num_rnn_layer,  # , batch_first=True
         ).to(device)
 
-        self.lstm.flatten_parameters()
+        self.gru.flatten_parameters()
 
         self.fc_v = nn.Linear(self.hid_dim, 1)
         self.fc_a = nn.Linear(self.hid_dim, self.out_dim)
 
         # for aux task
-        self.pred = nn.Linear(self.hid_dim, self.hand_size * 3)
+        self.pred_1st = nn.Linear(self.hid_dim, self.hand_size * 3)
 
     @torch.jit.script_method
     def get_h0(self, batchsize: int) -> Dict[str, torch.Tensor]:
         shape = (self.num_rnn_layer, batchsize, self.hid_dim)
-        hid = {"h0": torch.zeros(*shape), "c0": torch.zeros(*shape)}
+        hid = {"h0": torch.zeros(*shape)}
         return hid
 
     @torch.jit.script_method
     def act(
-        self, priv_s: torch.Tensor, hid: Dict[str, torch.Tensor]
+            self, priv_s: torch.Tensor, hid: Dict[str, torch.Tensor]
     ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
         assert priv_s.dim() == 2, "dim should be 2, [batch, dim], get %d" % s.dim()
 
         priv_s = priv_s.unsqueeze(0)
         x = self.net(priv_s)
-        o, (h, c) = self.lstm(x, (hid["h0"], hid["c0"]))
+        o, (h) = self.gru(x, (hid["h0"]))
         a = self.fc_a(o)
         a = a.squeeze(0)
-
-        return a, {"h0": h, "c0": c}#, t_pred
-
+        return a, {"h0": h}  # , t_pred
 
     @torch.jit.script_method
     def forward(
-        self,
-        priv_s: torch.Tensor,
-        legal_move: torch.Tensor,
-        action: torch.Tensor,
-        hid: Dict[str, torch.Tensor],
+            self,
+            priv_s: torch.Tensor,
+            legal_move: torch.Tensor,
+            action: torch.Tensor,
+            hid: Dict[str, torch.Tensor],
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         assert priv_s.dim() == 3 or priv_s.dim() == 2, \
             "dim = 3/2, [seq_len(optional), batch, dim]"
@@ -76,12 +74,10 @@ class R2D2Net(torch.jit.ScriptModule):
             one_step = True
 
         x = self.net(priv_s)
-
         if len(hid) == 0:
-            o, (h, c) = self.lstm(x)
+            o, (h) = self.gru(x)
         else:
-            o, (h, c) = self.lstm(x, (hid["h0"], hid["c0"]))
-
+            o, (h) = self.gru(x, hid["h0"])
         a = self.fc_a(o)
         v = self.fc_v(o)
         q = self._duel(v, a, legal_move)
@@ -104,7 +100,7 @@ class R2D2Net(torch.jit.ScriptModule):
 
     @torch.jit.script_method
     def _duel(
-        self, v: torch.Tensor, a: torch.Tensor, legal_move: torch.Tensor
+            self, v: torch.Tensor, a: torch.Tensor, legal_move: torch.Tensor
     ) -> torch.Tensor:
         assert a.size() == legal_move.size()
         legal_a = a * legal_move
@@ -132,26 +128,27 @@ class R2D2Net(torch.jit.ScriptModule):
         return xent, avg_xent, q, seq_xent.detach()
 
     def pred_loss_1st(self, lstm_o, target, hand_slot_mask, seq_len):
-        return self.cross_entropy(self.pred, lstm_o, target, hand_slot_mask, seq_len)
+        return self.cross_entropy(self.pred_1st, lstm_o, target, hand_slot_mask, seq_len)
 
 
 class R2D2Agent(torch.jit.ScriptModule):
     __constants__ = ["vdn", "multi_step", "gamma", "eta", "uniform_priority"]
 
     def __init__(
-        self,
-        vdn,
-        multi_step,
-        gamma,
-        eta,
-        device,
-        in_dim,
-        hid_dim,
-        out_dim,
-        num_fflayer,
-        num_rnn_layer,
-        hand_size,
-        uniform_priority,
+            self,
+            vdn,
+            multi_step,
+            gamma,
+            eta,
+            device,
+            in_dim,
+            hid_dim,
+            out_dim,
+            num_fflayer,
+            num_rnn_layer,
+            hand_size,
+            uniform_priority,
+            sad=False
     ):
         super().__init__()
         self.online_net = R2D2Net(
@@ -165,6 +162,7 @@ class R2D2Agent(torch.jit.ScriptModule):
         self.gamma = gamma
         self.eta = eta
         self.uniform_priority = uniform_priority
+        self.sad = sad
 
     @torch.jit.script_method
     def get_h0(self, batchsize: int) -> Dict[str, torch.Tensor]:
@@ -185,7 +183,8 @@ class R2D2Agent(torch.jit.ScriptModule):
             self.online_net.num_fflayer,
             self.online_net.num_rnn_layer,
             self.online_net.hand_size,
-            self.uniform_priority
+            self.uniform_priority,
+            self.sad
         )
         cloned.load_state_dict(self.state_dict())
         return cloned.to(device)
@@ -195,10 +194,10 @@ class R2D2Agent(torch.jit.ScriptModule):
 
     @torch.jit.script_method
     def greedy_act(
-        self,
-        priv_s: torch.Tensor,
-        legal_move: torch.Tensor,
-        hid: Dict[str, torch.Tensor]
+            self,
+            priv_s: torch.Tensor,
+            legal_move: torch.Tensor,
+            hid: Dict[str, torch.Tensor]
     ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
         adv, new_hid = self.online_net.act(priv_s, hid)
         legal_adv = (1 + adv - adv.min()) * legal_move
@@ -213,21 +212,25 @@ class R2D2Agent(torch.jit.ScriptModule):
             [batchsize] or [batchsize, num_player]
         """
         obsize, ibsize, num_player = 0, 0, 0
+        if self.sad:
+            _priv_s = obs["priv_s"]
+        else:
+            _priv_s = obs["priv_s_gen"]
+
         if self.vdn:
-            obsize, ibsize, num_player = obs["priv_s"].size()[:3]
-            priv_s = obs["priv_s"].flatten(0, 2)
+            obsize, ibsize, num_player = _priv_s.size()[:3]
+            priv_s = _priv_s.flatten(0, 2)
             legal_move = obs["legal_move"].flatten(0, 2)
             eps = obs["eps"].flatten(0, 2)
         else:
-            obsize, ibsize = obs["priv_s"].size()[:2]
+            obsize, ibsize = _priv_s.size()[:2]
             num_player = 1
-            priv_s = obs["priv_s"].flatten(0, 1)
+            priv_s = _priv_s.flatten(0, 1)
             legal_move = obs["legal_move"].flatten(0, 1)
             eps = obs["eps"].flatten(0, 1)
 
         hid = {
             "h0": obs["h0"].flatten(0, 1).transpose(0, 1).contiguous(),
-            "c0": obs["c0"].flatten(0, 1).transpose(0, 1).contiguous(),
         }
 
         greedy_action, new_hid = self.greedy_act(priv_s, legal_move, hid)
@@ -254,13 +257,11 @@ class R2D2Agent(torch.jit.ScriptModule):
             self.online_net.hid_dim
         )
         h0 = new_hid["h0"].transpose(0, 1).view(*hid_shape)
-        c0 = new_hid["c0"].transpose(0, 1).view(*hid_shape)
 
         reply = {
             "a": action.detach().cpu(),
             "greedy_a": greedy_action.detach().cpu(),
             "h0": h0.contiguous().detach().cpu(),
-            "c0": c0.contiguous().detach().cpu(),
         }
         return reply
 
@@ -274,29 +275,34 @@ class R2D2Agent(torch.jit.ScriptModule):
 
         obsize, ibsize, num_player = 0, 0, 0
         flatten_end = 0
+        if self.sad:
+            _priv_s = input_["priv_s"]
+            _next_priv_s = input_["next_priv_s"]
+        else:
+            _priv_s = input_["priv_s_gen"]
+            _next_priv_s = input_["next_priv_s_gen"]
+
         if self.vdn:
-            obsize, ibsize, num_player = input_["priv_s"].size()[:3]
+            obsize, ibsize, num_player = _priv_s.size()[:3]
             flatten_end = 2
         else:
-            obsize, ibsize = input_["priv_s"].size()[:2]
+            obsize, ibsize = _priv_s.size()[:2]
             num_player = 1
             flatten_end = 1
 
-        priv_s = input_["priv_s"].flatten(0, flatten_end)
+        priv_s = _priv_s.flatten(0, flatten_end)
         legal_move = input_["legal_move"].flatten(0, flatten_end)
         online_a = input_["a"].flatten(0, flatten_end)
 
-        next_priv_s = input_["next_priv_s"].flatten(0, flatten_end)
+        next_priv_s = _next_priv_s.flatten(0, flatten_end)
         next_legal_move = input_["next_legal_move"].flatten(0, flatten_end)
         temperature = input_["temperature"].flatten(0, flatten_end)
 
         hid = {
             "h0": input_["h0"].flatten(0, 1).transpose(0, 1).contiguous(),
-            "c0": input_["c0"].flatten(0, 1).transpose(0, 1).contiguous(),
         }
         next_hid = {
             "h0": input_["next_h0"].flatten(0, 1).transpose(0, 1).contiguous(),
-            "c0": input_["next_c0"].flatten(0, 1).transpose(0, 1).contiguous(),
         }
         reward = input_["reward"].flatten(0, 1)
         bootstrap = input_["bootstrap"].flatten(0, 1)
@@ -349,7 +355,10 @@ class R2D2Agent(torch.jit.ScriptModule):
             bsize, num_player = self.flat_4d(obs)
             self.flat_4d(action)
 
-        priv_s = obs["priv_s"]
+        if self.sad:
+            priv_s = obs["priv_s"]
+        else:
+            priv_s = obs["priv_s_gen"]
         legal_move = obs["legal_move"]
         action = action["a"]
 
@@ -385,7 +394,7 @@ class R2D2Agent(torch.jit.ScriptModule):
         err = (target.detach() - online_qa) * mask
         return err, lstm_o
 
-    def aux_task_iql(self, lstm_o, hand, seq_len, rl_loss_size, stat):
+    def aux_task_iql(self, lstm_o, hand, partner_index, seq_len, rl_loss_size, stat):
         seq_size, bsize, _ = hand.size()
         own_hand = hand.view(seq_size, bsize, self.online_net.hand_size, 3)
         own_hand_slot_mask = own_hand.sum(3)
@@ -397,7 +406,7 @@ class R2D2Agent(torch.jit.ScriptModule):
         stat["aux1"].feed(avg_xent1)
         return pred_loss1
 
-    def aux_task_vdn(self, lstm_o, hand, seq_len, rl_loss_size, stat):
+    def aux_task_vdn(self, lstm_o, hand, t, seq_len, rl_loss_size, stat):
         """1st and 2nd order aux task used in VDN"""
         seq_size, bsize, num_player, _ = hand.size()
         own_hand = hand.view(seq_size, bsize, num_player, self.online_net.hand_size, 3)
@@ -407,8 +416,8 @@ class R2D2Agent(torch.jit.ScriptModule):
         )
         assert pred_loss1.size() == rl_loss_size
 
-        rotate = [num_player-1]
-        rotate.extend(list(range(num_player-1)))
+        rotate = [num_player - 1]
+        rotate.extend(list(range(num_player - 1)))
         partner_hand = own_hand[:, :, rotate, :, :]
         partner_hand_slot_mask = partner_hand.sum(4)
         partner_belief1 = belief1[:, :, rotate, :, :].detach()
@@ -438,9 +447,10 @@ class R2D2Agent(torch.jit.ScriptModule):
 
         if pred_weight > 0:
             if self.vdn:
-                pred_loss1  = self.aux_task_vdn(
+                pred_loss1 = self.aux_task_vdn(
                     lstm_o,
                     batch.obs["own_hand"],
+                    batch.obs["temperature"],
                     batch.seq_len,
                     rl_loss.size(),
                     stat,
@@ -450,6 +460,7 @@ class R2D2Agent(torch.jit.ScriptModule):
                 pred_loss = self.aux_task_iql(
                     lstm_o,
                     batch.obs["own_hand"],
+                    batch.obs["partner_index"],
                     batch.seq_len,
                     rl_loss.size(),
                     stat,
