@@ -258,6 +258,10 @@ class PrioritizedReplay {
     }
     sampledIds_.clear();
   }
+  
+  void slice(int drop_size){
+    storage_.blockPop(drop_size);
+  }
 
   DataType get(int idx) {
     return storage_.get(idx);

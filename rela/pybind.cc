@@ -55,6 +55,7 @@ PYBIND11_MODULE(rela, m) {
       .def("num_add", &RNNPrioritizedReplay::numAdd)
       .def("sample", &RNNPrioritizedReplay::sample)
       .def("update_priority", &RNNPrioritizedReplay::updatePriority)
+      .def("slice", &RNNPrioritizedReplay::slice)
       .def("get", &RNNPrioritizedReplay::get);
 
   py::class_<ThreadLoop, std::shared_ptr<ThreadLoop>>(m, "ThreadLoop");
