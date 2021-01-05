@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from typing import Tuple, Dict
 import common_utils
 
@@ -17,16 +18,27 @@ class R2D2Net(torch.jit.ScriptModule):
         self.num_agid_layers = num_agid_layers
         self.num_rnn_layer = num_rnn_layer
         self.hand_size = hand_size
-
+        #print("number agid layers inside R2D2Net is ", num_agid_layers)
+        #if self.num_fflayer > 1:
+        #    layers = [nn.Linear(self.in_dim, self.hid_dim), nn.ReLU()]
+        #else:
+        #    layers = [nn.Linear(self.in_dim, self.hid_dim)]
         layers = [nn.Linear(self.in_dim, self.hid_dim), nn.ReLU()]
         for i in range(1, self.num_fflayer):
             layers += [nn.Linear(self.hid_dim, self.hid_dim), nn.ReLU()]
+            #layers += [nn.Linear(self.hid_dim, self.hid_dim)]
 
         self.net = nn.Sequential(*layers).to(device)
 
+        #if self.num_agid_layers > 1:
+        #    layers_ag_id = [nn.Linear(self.in_id_dim, self.hid_dim), nn.ReLU()]
+        #else:
+        #    layers_ag_id = [nn.Linear(self.in_id_dim, self.hid_dim)]
         layers_ag_id = [nn.Linear(self.in_id_dim, self.hid_dim), nn.ReLU()]
         for i in range(1, self.num_agid_layers):
-            layers += [nn.Linear(self.hid_dim, self.hid_dim), nn.ReLU()]
+            layers_ag_id += [nn.Linear(self.hid_dim, self.hid_dim), nn.ReLU()]
+            #layers_ag_id += [nn.Linear(self.hid_dim, self.hid_dim)]
+
         self.net_embed_id = nn.Sequential(*layers_ag_id).to(device)
 
         self.lstm = nn.LSTM(
@@ -63,7 +75,10 @@ class R2D2Net(torch.jit.ScriptModule):
         else:
             ag_id = ag_id.to(x.device)
             x_id = self.net_embed_id(ag_id)
-            x_fused = x * x_id
+            x_fused = x + x_id
+            #x_fused = F.relu(x * x_id)
+            #x_fused = F.relu(x + x_id)
+
         o, (h, c) = self.lstm(x_fused, (hid["h0"], hid["c0"]))
         a = self.fc_a(o)
         a = a.squeeze(0)
@@ -78,7 +93,7 @@ class R2D2Net(torch.jit.ScriptModule):
         legal_move: torch.Tensor,
         action: torch.Tensor,
         hid: Dict[str, torch.Tensor],
-        ag_id: torch.Tensor,
+        ag_id: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         assert priv_s.dim() == 3 or priv_s.dim() == 2, \
             "dim = 3/2, [seq_len(optional), batch, dim]"
@@ -96,7 +111,11 @@ class R2D2Net(torch.jit.ScriptModule):
         else:
             ag_id = ag_id.to(x.device)
             x_id = self.net_embed_id(ag_id)
-            x_fused = x * x_id
+            # print("x shape is ", x.size())
+            # print("x id shape is ", x_id.size())
+            x_fused = x + x_id
+            #x_fused = F.relu(x * x_id)
+           # x_fused = F.relu(x + x_id)
 
         if len(hid) == 0:
             o, (h, c) = self.lstm(x_fused)
@@ -178,7 +197,6 @@ class R2D2Agent(torch.jit.ScriptModule):
         agent_id = None,
     ):
         super().__init__()
-        #self.agent_id = agent_id
         if agent_id is None:
             self.agent_id = -1*torch.ones([in_id_dim])
         else:
@@ -335,13 +353,12 @@ class R2D2Agent(torch.jit.ScriptModule):
         }
         reward = input_["reward"].flatten(0, 1)
         bootstrap = input_["bootstrap"].flatten(0, 1)
-        
+         
         online_qa = self.online_net(priv_s, legal_move, online_a, hid, self.agent_id)[0]
         next_a, _ = self.greedy_act(
             next_priv_s, next_legal_move, next_hid)
         target_qa, _, _, _ = self.target_net(
-            next_priv_s, next_legal_move, next_a, next_hid, self.agent_id
-        )
+            next_priv_s, next_legal_move, next_a, next_hid, self.agent_id)
 
         bsize = obsize * ibsize
         if self.vdn:
@@ -376,7 +393,7 @@ class R2D2Agent(torch.jit.ScriptModule):
                 data[k] = v.view(d0, d1 * d2)
         return bsize, num_player
 
-    def td_error(self, obs, hid, action, reward, terminal, bootstrap, seq_len, stat):
+    def td_error(self, obs, hid, action, reward, terminal, bootstrap, seq_len, stat, batch_idx):
         max_seq_len = obs["priv_s"].size(0)
 
         bsize, num_player = 0, 1
@@ -394,6 +411,9 @@ class R2D2Agent(torch.jit.ScriptModule):
         # i.e. no terminal in the middle
         online_qa, greedy_a, _, lstm_o = self.online_net(
             priv_s, legal_move, action, hid, self.agent_id)
+        # print("priv s shape inside td error is ", priv_s.size())
+        if batch_idx == 5:
+            print("x norm is ", torch.norm(self.online_net.net(priv_s)).detach().item())
 
         with torch.no_grad():
             target_qa, _, _, _ = self.target_net(priv_s, legal_move, greedy_a, hid, self.agent_id)
@@ -451,7 +471,7 @@ class R2D2Agent(torch.jit.ScriptModule):
         stat["aux1"].feed(avg_xent1)
         return pred_loss1
 
-    def loss(self, batch, pred_weight, stat):
+    def loss(self, batch, pred_weight, stat, batch_idx):
         err, lstm_o = self.td_error(
             batch.obs,
             batch.h0,
@@ -460,8 +480,10 @@ class R2D2Agent(torch.jit.ScriptModule):
             batch.terminal,
             batch.bootstrap,
             batch.seq_len,
-            stat
+            stat,
+            batch_idx
         )
+
         rl_loss = nn.functional.smooth_l1_loss(
             err, torch.zeros_like(err), reduction="none"
         )

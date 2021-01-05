@@ -51,7 +51,7 @@ def parse_args():
 
     parser.add_argument("--rnn_type", type=str, default="lstm")
     parser.add_argument("--num_fflayer", type=int, default=1)
-    parser.add_argument("--num_agid_layers", type=int, default=1)
+    parser.add_argument("--num_agid_layers", type=int, default=2)
     parser.add_argument("--num_rnn_layer", type=int, default=2)
     parser.add_argument("--rnn_hid_dim", type=int, default=512)
 
@@ -381,13 +381,13 @@ if __name__ == "__main__":
                     ## TODO: find a better solution instead of this hack slicing priority.
                     ## pseudo loss/priority computation for updating priority
                     for prev_task_idx in range(len(episodic_memory)):
-                        _, p = learnable_agent.loss(prev_tasks_b[prev_task_idx], args.pred_weight, stat)
+                        _, p = learnable_agent.loss(prev_tasks_b[prev_task_idx], args.pred_weight, stat, 0)
                         p = rela.aggregate_priority(
                         p.cpu(), prev_tasks_b[prev_task_idx].seq_len.cpu(), args.eta
                         )
                         episodic_memory[prev_task_idx].update_priority(p)
 
-                loss, priority = learnable_agent.loss(batch, args.pred_weight, stat)
+                loss, priority = learnable_agent.loss(batch, args.pred_weight, stat, batch_idx)
 
                 priority = rela.aggregate_priority(
                     priority.cpu(), batch.seq_len.cpu(), args.eta
@@ -395,6 +395,22 @@ if __name__ == "__main__":
 
                 loss = (loss * weight).mean()
                 loss.backward()
+
+                if batch_idx == 5:
+                    # print("learnable agent net embed id parameters is ", learnable_agent.online_net.net_embed_id.parameters())
+                    grad_net_embed_id = []
+                    for p in learnable_agent.online_net.net_embed_id.parameters():
+                        if p.requires_grad:
+                            if p.grad is not None:
+                                grad_net_embed_id.append(p.grad.view(-1))
+                    grad_net_embed_id = torch.cat(grad_net_embed_id)
+                    print("grad_net_embed_id 100 is ", grad_net_embed_id[100])
+                    # print("grad_net_embed_id 3035 is ", grad_net_embed_id[3035])
+                    # print("ag id embedding sum is ", torch.sum(learnable_agent.online_net.net_embed_id(learnable_agent.agent_id.to(args.train_device))))
+                    # print("ag id size is ", learnable_agent.online_net.net_embed_id(learnable_agent.agent_id.to(args.train_device))).size()
+                    print("ag id embedding norm is ", 80*torch.norm(learnable_agent.online_net.net_embed_id(learnable_agent.agent_id.to(args.train_device))).detach().item())
+                    # print("non zero elements in grad_net_embed_id is ", torch.nonzero(grad_net_embed_id))
+                    # print("grad_net_embed_id size is ", grad_net_embed_id.size())
 
                 torch.cuda.synchronize()
                 stopwatch.time("forward & backward")
@@ -502,7 +518,7 @@ if __name__ == "__main__":
                                 torch.cuda.synchronize()
                                 stopwatch.time("sync and updating")
 
-                                loss, priority = few_shot_learnable_agent.loss(batch, args.pred_weight, eval_stat)
+                                loss, priority = few_shot_learnable_agent.loss(batch, args.pred_weight, eval_stat, eval_batch_idx)
 
                                 priority = rela.aggregate_priority(
                                     priority.cpu(), batch.seq_len.cpu(), args.eta
