@@ -77,6 +77,7 @@ def evaluate_legacy_model(
             num_fflayer = agent_args['num_fflayer']
             num_rnn_layer = agent_args['num_rnn_layer']
 
+        num_agid_layers = learnable_agent_args['num_agid_layers']
         if rnn_type == "lstm":
             import r2d2_lstm as r2d2
         elif rnn_type == "gru":
@@ -84,7 +85,7 @@ def evaluate_legacy_model(
 
         in_id_dim = 5
         agent = r2d2.R2D2Agent(
-        False, 3, 0.999, 0.9, device, input_dim, in_id_dim, rnn_hid_dim, output_dim, num_fflayer, num_rnn_layer, 5, False
+        False, 3, 0.999, 0.9, device, input_dim, in_id_dim, rnn_hid_dim, output_dim, num_fflayer, num_agid_layers, num_rnn_layer, 5, False
         ).to(device)
         utils.load_weight(agent.online_net, weight_file, device)
         if i == 0:
@@ -232,7 +233,7 @@ if __name__ == "__main__":
                     avg_fs_forgetting += forgetting_fs
                 wandb.log({"epoch_fs_forgetting": act_epoch_cnt, "forgetting_fs_"+cur_ag_id: forgetting_fs})
 
-        if act_epoch_cnt >= learnable_agent_args['num_epoch']*(cur_task+1) and all_done == total_tasks+1:
+        if act_epoch_cnt >= learnable_agent_args['num_epoch']*(cur_task+1) and all_done%(total_tasks+1) == 0:
             cur_task += 1
             for fixed_agent_idx in range(len(args.weight_2)):
                 prev_task_max[fixed_agent_idx] = prev_max[fixed_agent_idx]
