@@ -59,6 +59,8 @@ def parse_args():
     parser.add_argument("--train_device", type=str, default="cuda:0")
     parser.add_argument("--batchsize", type=int, default=128)
     parser.add_argument("--num_epoch", type=int, default=500)
+    parser.add_argument("--max_train_steps", type=int, default=10000000)
+    parser.add_argument("--max_eval_steps", type=int, default=50000)
     parser.add_argument("--epoch_len", type=int, default=1000)
     parser.add_argument("--eval_num_epoch", type=int, default=1)
     parser.add_argument("--eval_epoch_len", type=int, default=1000)
@@ -100,7 +102,6 @@ def parse_args():
     # life long learning settings
     parser.add_argument("--ll_algo", type=str, default="AGEM")
     parser.add_argument("--eval_method", type=str, default="zero_shot")
-    parser.add_argument("--add_agent_id", action="store_true", default=False)
 
     ## args dump settings
     parser.add_argument("--args_dump_name", type=str, default="AGEM_commandline_args.txt")
@@ -309,6 +310,7 @@ if __name__ == "__main__":
         tachometer = utils.Tachometer()
         stopwatch = common_utils.Stopwatch()
 
+        task_done = False
         for epoch in range(args.num_epoch):
             total_epochs += 1
             print("beginning of epoch: ", total_epochs)
@@ -319,6 +321,13 @@ if __name__ == "__main__":
             stopwatch.reset()
 
             for batch_idx in range(args.epoch_len):
+                learnable_agent_actors = [x[0] for x in act_group.actors]
+                total_task_steps = utils.get_num_acts(learnable_agent_actors)
+                if total_task_steps > args.max_train_steps:
+                    print("Training with agent  ", task_idx, " is done after ", total_task_steps)
+                    task_done=True
+                    break
+
                 num_update = batch_idx + epoch * args.epoch_len
                 if num_update % args.num_update_between_sync == 0:
                     learnable_agent.sync_target_with_online()
@@ -483,6 +492,9 @@ if __name__ == "__main__":
             stopwatch.summary()
             stat.summary(epoch)
 
+            if task_done == True:
+                break
+
             eval_seed = (9917 + epoch * 999999) % 7777777
             
             if (epoch+1) % args.eval_freq == 0:
@@ -545,12 +557,19 @@ if __name__ == "__main__":
                             time.sleep(1)
                         eval_tachometer = utils.Tachometer(iseval=True)
                         eval_stat = common_utils.MultiCounter(args.save_dir)
-
+                        eval_done = False
                         for eval_epoch in range(args.eval_num_epoch):
                             print("beginning of eval epoch: ", eval_epoch)
                             eval_stat.reset()
                             eval_tachometer.start()
                             for eval_batch_idx in range(args.eval_epoch_len):
+                                eval_learnable_agent_actors = [x[0] for x in eval_act_group.actors]
+                                total_eval_steps = utils.get_num_acts(eval_learnable_agent_actors)
+                                if total_eval_steps > args.max_eval_steps:
+                                    print("Finetuning with ", eval_fixed_ag_idx, " is done after ", total_eval_steps)
+                                    eval_done = True
+                                    break
+
                                 eval_num_update = eval_batch_idx + eval_epoch * args.eval_epoch_len
                                 if eval_num_update % args.eval_num_update_between_sync == 0:
                                     few_shot_learnable_agent.sync_target_with_online()
@@ -586,10 +605,12 @@ if __name__ == "__main__":
 
                                 eval_stat["loss"].feed(loss.detach().item())
                                 eval_stat["grad_norm"].feed(g_norm.detach().item())
-
+                           
                             eval_learnable_agent_actors = [x[0] for x in eval_act_group.actors]
                             eval_tachometer.lap(eval_learnable_agent_actors, eval_replay_buffer, args.eval_epoch_len * args.batchsize, count_factor)
                             eval_stat.summary(eval_epoch)
+                            if eval_done == True:
+                                break
                         eval_context.pause()
                         fs_force_save_name = "model_epoch%d_few_shot_%d" % (total_epochs, eval_fixed_ag_idx)
                         few_shot_model_saved = saver.save(None, few_shot_learnable_agent.online_net.state_dict(), force_save_name=fs_force_save_name)      

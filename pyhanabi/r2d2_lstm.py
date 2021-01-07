@@ -152,6 +152,7 @@ class R2D2Agent(torch.jit.ScriptModule):
         num_rnn_layer,
         hand_size,
         uniform_priority,
+        sad=False,
     ):
         super().__init__()
         self.online_net = R2D2Net(
@@ -165,6 +166,7 @@ class R2D2Agent(torch.jit.ScriptModule):
         self.gamma = gamma
         self.eta = eta
         self.uniform_priority = uniform_priority
+        self.sad = sad
 
     @torch.jit.script_method
     def get_h0(self, batchsize: int) -> Dict[str, torch.Tensor]:
@@ -185,7 +187,8 @@ class R2D2Agent(torch.jit.ScriptModule):
             self.online_net.num_fflayer,
             self.online_net.num_rnn_layer,
             self.online_net.hand_size,
-            self.uniform_priority
+            self.uniform_priority,
+            self.sad
         )
         cloned.load_state_dict(self.state_dict())
         return cloned.to(device)
@@ -213,15 +216,21 @@ class R2D2Agent(torch.jit.ScriptModule):
             [batchsize] or [batchsize, num_player]
         """
         obsize, ibsize, num_player = 0, 0, 0
+
+        if self.sad:
+            _priv_s = obs["priv_s"]
+        else:
+            _priv_s = obs["priv_s_gen"]
+
         if self.vdn:
-            obsize, ibsize, num_player = obs["priv_s"].size()[:3]
-            priv_s = obs["priv_s"].flatten(0, 2)
+            obsize, ibsize, num_player = _priv_s.size()[:3]
+            priv_s = _priv_s.flatten(0, 2)
             legal_move = obs["legal_move"].flatten(0, 2)
             eps = obs["eps"].flatten(0, 2)
         else:
-            obsize, ibsize = obs["priv_s"].size()[:2]
+            obsize, ibsize = _priv_s.size()[:2]
             num_player = 1
-            priv_s = obs["priv_s"].flatten(0, 1)
+            priv_s = _priv_s.flatten(0, 1)
             legal_move = obs["legal_move"].flatten(0, 1)
             eps = obs["eps"].flatten(0, 1)
 
@@ -274,19 +283,26 @@ class R2D2Agent(torch.jit.ScriptModule):
 
         obsize, ibsize, num_player = 0, 0, 0
         flatten_end = 0
+        if self.sad:
+            _priv_s = input_["priv_s"]
+            _next_priv_s = input_["next_priv_s"]
+        else:
+            _priv_s = input_["priv_s_gen"]
+            _next_priv_s = input_["next_priv_s_gen"]
+
         if self.vdn:
-            obsize, ibsize, num_player = input_["priv_s"].size()[:3]
+            obsize, ibsize, num_player = _priv_s.size()[:3]
             flatten_end = 2
         else:
-            obsize, ibsize = input_["priv_s"].size()[:2]
+            obsize, ibsize = _priv_s.size()[:2]
             num_player = 1
             flatten_end = 1
 
-        priv_s = input_["priv_s"].flatten(0, flatten_end)
+        priv_s = _priv_s.flatten(0, flatten_end)
         legal_move = input_["legal_move"].flatten(0, flatten_end)
         online_a = input_["a"].flatten(0, flatten_end)
 
-        next_priv_s = input_["next_priv_s"].flatten(0, flatten_end)
+        next_priv_s = _next_priv_s.flatten(0, flatten_end)
         next_legal_move = input_["next_legal_move"].flatten(0, flatten_end)
         temperature = input_["temperature"].flatten(0, flatten_end)
 
@@ -349,7 +365,11 @@ class R2D2Agent(torch.jit.ScriptModule):
             bsize, num_player = self.flat_4d(obs)
             self.flat_4d(action)
 
-        priv_s = obs["priv_s"]
+        if self.sad:
+            priv_s = obs["priv_s"]
+        else:
+            priv_s = obs["priv_s_gen"]
+
         legal_move = obs["legal_move"]
         action = action["a"]
 

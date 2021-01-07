@@ -290,7 +290,6 @@ class R2D2Agent(torch.jit.ScriptModule):
             _priv_s = input_["priv_s_gen"]
             _next_priv_s = input_["next_priv_s_gen"]
 
-
         if self.vdn:
             obsize, ibsize, num_player = _priv_s.size()[:3]
             flatten_end = 2
@@ -370,6 +369,7 @@ class R2D2Agent(torch.jit.ScriptModule):
             priv_s = obs["priv_s"]
         else:
             priv_s = obs["priv_s_gen"]
+            
         legal_move = obs["legal_move"]
         action = action["a"]
 
