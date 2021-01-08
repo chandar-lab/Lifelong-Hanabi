@@ -102,7 +102,7 @@ def parse_args():
 
     # life long learning settings
     parser.add_argument("--ll_algo", type=str, default="ER")
-    parser.add_argument("--eval_method", type=str, default="zero_shot")
+    parser.add_argument("--eval_method", type=str, default="few_shot")
 
     ## EWC settings
     parser.add_argument("--online", type=int, default=0)
@@ -115,7 +115,7 @@ def parse_args():
 
     args = parser.parse_args()
     assert args.method in ["vdn", "iql"]
-    assert args.ll_algo in ["ER", "AGEM", "EWC", "None"]
+    assert args.ll_algo in ["ER", "AGEM", "EWC", "Naive"]
     assert args.eval_method in ["zero_shot", "few_shot"]
     return args
 
