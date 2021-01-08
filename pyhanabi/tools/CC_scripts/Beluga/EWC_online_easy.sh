@@ -2,9 +2,9 @@
 #SBATCH --account=rrg-bengioy-ad
 #SBATCH --cpus-per-task=8
 #SBATCH --gres=gpu:3
-#SBATCH --mem=150G
+#SBATCH --mem=130G
 #SBATCH --time=24:00:00
-#SBATCH -o /scratch/akb/ewc_online_easy_noeval-%j.out
+#SBATCH -o /scratch/akb/final_experiments/out_files/ewc/ewc_online_easy-%j.out
 
 ## specify optim_name to be either Adam or SGD.
 ## specify --decay_lr for learning rate decay.
@@ -12,17 +12,19 @@
 
 USER="akb"
 EVAL_METHOD="few_shot"
-LOAD_MODEL_DIR="../models/iql_2p"
+LOAD_MODEL_DIR="/scratch/akb/final_experiments/final_model_pool_for_csv"
 INITIAL_LR=0.02
 BATCH_SIZE=32
 OPTIM_NAME="SGD"
 python cont_EWC.py \
-       --save_dir /scratch/${USER}/${OPTIM_NAME}_EWC_online_easy \
+       --save_dir /scratch/${USER}/final_experiments/EWC/${OPTIM_NAME}_EWC_online_easy \
        --load_model_dir ${LOAD_MODEL_DIR} \
        --method iql \
        --ll_algo EWC \
-       --load_learnable_model ${LOAD_MODEL_DIR}/iql_2p_5.pthw \
-       --load_fixed_model ${LOAD_MODEL_DIR}/iql_2p_6.pthw ${LOAD_MODEL_DIR}/iql_2p_11.pthw ${LOAD_MODEL_DIR}/iql_2p_113.pthw ${LOAD_MODEL_DIR}/iql_2p_210.pthw \
+       --load_learnable_model ${LOAD_MODEL_DIR}/iql_2p_210.pthw \
+       --load_fixed_model ${LOAD_MODEL_DIR}/vdn_2p_720.pthw ${LOAD_MODEL_DIR}/sad_op_2p_1.pthw \
+                          ${LOAD_MODEL_DIR}/vdn_2p_726.pthw ${LOAD_MODEL_DIR}/sad_2p_2001.pthw \
+                          ${LOAD_MODEL_DIR}/vdn_2p_7140.pthw \
        --num_thread 10 \
        --num_game_per_thread 80 \
        --eval_num_thread 10 \
@@ -42,7 +44,7 @@ python cont_EWC.py \
        --optim_name ${OPTIM_NAME} \
        --batchsize ${BATCH_SIZE} \
        --online 1 \
-       --ewc_lambda 5000 \
+       --ewc_lambda 50000 \
        --ewc_gamma 1 \
        --burn_in_frames 10000 \
        --eval_burn_in_frames 1000 \
