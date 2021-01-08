@@ -12,4 +12,5 @@ sweep*.py
 *.ipynb*
 models/*
 logs/*
+unused/*
 !models/download.sh
