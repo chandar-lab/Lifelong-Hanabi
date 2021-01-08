@@ -43,6 +43,8 @@ python cont_EWC.py \
        --sgd_momentum 0.8 \
        --optim_name ${OPTIM_NAME} \
        --batchsize ${BATCH_SIZE} \
+       --max_train_steps 200000000 \
+       --max_eval_steps 500000 \
        --online 1 \
        --ewc_lambda 50000 \
        --ewc_gamma 1 \
