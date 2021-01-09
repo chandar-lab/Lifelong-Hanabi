@@ -4,7 +4,7 @@
 #SBATCH --gres=gpu:3
 #SBATCH --mem=150G
 #SBATCH --time=24:00:00
-#SBATCH -o /scratch/akb/final_experiments/out_files/mtl/mtl_easy-%j.out
+#SBATCH -o /scratch/akb/final_experiments/out_files/mtl/sgd-mtl_easy-%j.out
 
 ## specify optim_name to be either Adam or SGD.
 ## specify --decay_lr for learning rate decay.
