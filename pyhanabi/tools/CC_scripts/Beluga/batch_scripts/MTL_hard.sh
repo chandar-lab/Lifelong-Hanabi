@@ -3,7 +3,7 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --gres=gpu:3
 #SBATCH --mem=180G
-#SBATCH --time=24:00:00
+#SBATCH --time=36:00:00
 #SBATCH -o /scratch/akb/final_experiments/out_files/mtl/sgd-mtl_hard-%j.out
 
 ## specify optim_name to be either Adam or SGD.
