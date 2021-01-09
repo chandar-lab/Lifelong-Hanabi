@@ -8,8 +8,9 @@ LOAD_MODEL_DIR="/scratch/akb/final_experiments/final_model_pool_for_csv"
 INITIAL_LR=0.02
 BATCH_SIZE=128
 OPTIM_NAME="SGD"
+SEED=10
 python cont_multitask.py \
-       --save_dir /scratch/${USER}/final_experiments/MTL/interactive/${OPTIM_NAME}_MTL_easy_interactive \
+       --save_dir /scratch/${USER}/final_experiments/MTL/interactive/${OPTIM_NAME}_MTL_easy_interactive_${SEED} \
        --load_model_dir ${LOAD_MODEL_DIR} \
        --method iql \
        --load_learnable_model ${LOAD_MODEL_DIR}/iql_2p_210.pthw \
@@ -26,7 +27,7 @@ python cont_multitask.py \
        --eps 1.5e-05 \
        --grad_clip 5 \
        --gamma 0.999 \
-       --seed 1 \
+       --seed ${SEED} \
        --initial_lr ${INITIAL_LR} \
        --final_lr 6.25e-05 \
        --lr_gamma 0.2 \
