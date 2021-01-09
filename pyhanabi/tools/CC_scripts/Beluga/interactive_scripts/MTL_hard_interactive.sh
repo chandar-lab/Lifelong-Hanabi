@@ -35,11 +35,11 @@ python cont_multitask.py \
        --sgd_momentum 0.8 \
        --optim_name ${OPTIM_NAME} \
        --batchsize ${BATCH_SIZE} \
-       --max_train_steps 200000000 \
-       --max_eval_steps 500000 \
-       --burn_in_frames 40000 \
+       --max_train_steps 1200000000 \
+       --max_eval_steps 3000000 \
+       --burn_in_frames 60000 \
        --eval_burn_in_frames 1000 \
-       --replay_buffer_size 131072 \
+       --replay_buffer_size 196608 \
        --eval_replay_buffer_size 10000 \
        --epoch_len 200 \
        --priority_exponent 0.9 \

@@ -390,12 +390,10 @@ if __name__ == "__main__":
         print("EPOCH: %d" % total_epochs)
         stopwatch.summary()
         stat.summary(epoch)
-        if mtl_done == True:
-            break
 
         eval_seed = (9917 + epoch * 999999) % 7777777
 
-        if (epoch+1) % args.eval_freq == 0:
+        if (epoch+1) % args.eval_freq == 0 or mtl_done == True:
             for eval_fixed_ag_idx, eval_fixed_agent in enumerate(fixed_agents + [fixed_learnable_agent]):
                 print("evaluating learnable agent with fixed agent %d "%eval_fixed_ag_idx)
 
@@ -518,7 +516,9 @@ if __name__ == "__main__":
             zs_force_save_name = "model_epoch%d_zero_shot" %(total_epochs*len(fixed_agents))
             zero_shot_model_saved = saver.save(None, learnable_agent.online_net.state_dict(), force_save_name=zs_force_save_name)
             print("zero shot model saved: %s "%(zero_shot_model_saved))
-
+        
+        if mtl_done == True:
+            break
         gc.collect()
         print("==========")
 
