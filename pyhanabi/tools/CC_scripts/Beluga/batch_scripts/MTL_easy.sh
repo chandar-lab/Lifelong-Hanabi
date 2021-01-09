@@ -45,9 +45,9 @@ python cont_multitask.py \
        --batchsize ${BATCH_SIZE} \
        --max_train_steps 200000000 \
        --max_eval_steps 500000 \
-       --burn_in_frames 40000 \
+       --burn_in_frames 50000 \
        --eval_burn_in_frames 1000 \
-       --replay_buffer_size 131072 \
+       --replay_buffer_size 163840 \
        --eval_replay_buffer_size 10000 \
        --epoch_len 200 \
        --priority_exponent 0.9 \
