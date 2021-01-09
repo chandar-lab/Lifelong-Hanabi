@@ -17,7 +17,7 @@ INITIAL_LR=0.02
 BATCH_SIZE=32
 OPTIM_NAME="SGD"
 python cont_ER.py \
-       --save_dir /scratch/${USER}/final_experiments/naive/${OPTIM_NAME}_naive_easy \
+       --save_dir /scratch/${USER}/final_experiments/naive/batch/${OPTIM_NAME}_naive_easy \
        --load_model_dir ${LOAD_MODEL_DIR} \
        --method iql \
        --ll_algo Naive \

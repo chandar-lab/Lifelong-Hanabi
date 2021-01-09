@@ -17,7 +17,7 @@ INITIAL_LR=0.02
 BATCH_SIZE=32
 OPTIM_NAME="SGD"
 python cont_ER.py \
-       --save_dir /scratch/${USER}/final_experiments/ER/${OPTIM_NAME}_ER_hard \
+       --save_dir /scratch/${USER}/final_experiments/ER/batch/${OPTIM_NAME}_ER_hard \
        --load_model_dir ${LOAD_MODEL_DIR} \
        --method iql \
        --ll_algo ER \

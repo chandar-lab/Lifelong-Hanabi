@@ -9,7 +9,7 @@ INITIAL_LR=0.02
 BATCH_SIZE=32
 OPTIM_NAME="SGD"
 python cont_ER.py \
-       --save_dir /scratch/${USER}/final_experiments/naive/${OPTIM_NAME}_naive_easy_interactive \
+       --save_dir /scratch/${USER}/final_experiments/naive/interactive/${OPTIM_NAME}_naive_easy_interactive \
        --load_model_dir ${LOAD_MODEL_DIR} \
        --method iql \
        --ll_algo Naive \

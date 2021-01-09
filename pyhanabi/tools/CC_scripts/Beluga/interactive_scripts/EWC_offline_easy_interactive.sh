@@ -9,7 +9,7 @@ INITIAL_LR=0.02
 BATCH_SIZE=32
 OPTIM_NAME="SGD"
 python cont_EWC.py \
-       --save_dir /scratch/${USER}/final_experiments/EWC/${OPTIM_NAME}_EWC_offline_easy_interactive \
+       --save_dir /scratch/${USER}/final_experiments/EWC/interactive/${OPTIM_NAME}_EWC_offline_easy_interactive \
        --load_model_dir ${LOAD_MODEL_DIR} \
        --method iql \
        --ll_algo EWC \

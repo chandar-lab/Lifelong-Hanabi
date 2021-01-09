@@ -9,7 +9,7 @@ INITIAL_LR=0.02
 BATCH_SIZE=32
 OPTIM_NAME="SGD"
 python cont_AGEM.py \
-       --save_dir /scratch/${USER}/final_experiments/AGEM/${OPTIM_NAME}_AGEM_hard_interactive \
+       --save_dir /scratch/${USER}/final_experiments/AGEM/interactive/${OPTIM_NAME}_AGEM_hard_interactive \
        --load_model_dir ${LOAD_MODEL_DIR} \
        --method iql \
        --ll_algo AGEM \

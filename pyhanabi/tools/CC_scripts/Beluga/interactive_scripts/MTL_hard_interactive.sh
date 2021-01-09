@@ -6,13 +6,12 @@ USER="akb"
 EVAL_METHOD="few_shot"
 LOAD_MODEL_DIR="/scratch/akb/final_experiments/final_model_pool_for_csv"
 INITIAL_LR=0.02
-BATCH_SIZE=32
+BATCH_SIZE=128
 OPTIM_NAME="SGD"
-python cont_EWC.py \
-       --save_dir /scratch/${USER}/final_experiments/EWC/interactive/${OPTIM_NAME}_EWC_offline_hard_interactive \
+python cont_multitask.py \
+       --save_dir /scratch/${USER}/final_experiments/MTL/interactive/${OPTIM_NAME}_MTL_hard_interactive \
        --load_model_dir ${LOAD_MODEL_DIR} \
        --method iql \
-       --ll_algo EWC \
        --load_learnable_model ${LOAD_MODEL_DIR}/iql_2p_4.pthw \
        --load_fixed_model ${LOAD_MODEL_DIR}/sad_2p_2025.pthw ${LOAD_MODEL_DIR}/sad_op_2p_2506.pthw \
                           ${LOAD_MODEL_DIR}/sad_op_2p_2507.pthw ${LOAD_MODEL_DIR}/vdn_2p_7141.pthw \
@@ -37,12 +36,9 @@ python cont_EWC.py \
        --batchsize ${BATCH_SIZE} \
        --max_train_steps 200000000 \
        --max_eval_steps 500000 \
-       --online 0 \
-       --ewc_lambda 50000 \
-       --ewc_gamma 1 \
-       --burn_in_frames 10000 \
+       --burn_in_frames 40000 \
        --eval_burn_in_frames 1000 \
-       --replay_buffer_size 32768 \
+       --replay_buffer_size 131072 \
        --eval_replay_buffer_size 10000 \
        --epoch_len 200 \
        --priority_exponent 0.9 \
