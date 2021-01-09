@@ -21,8 +21,6 @@ sys.path.append(lib_path)
 
 import numpy as np
 import torch
-import r2d2_gru as r2d2_gru
-import r2d2_lstm as r2d2_lstm
 import utils
 from eval import evaluate
 

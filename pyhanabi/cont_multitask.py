@@ -99,7 +99,7 @@ def parse_args():
 
 
     # life long learning settings
-    parser.add_argument("--eval_method", type=str, default="zero_shot")
+    parser.add_argument("--eval_method", type=str, default="few_shot")
 
     ## args dump settings
     parser.add_argument("--args_dump_name", type=str, default="ER_commandline_args.txt")
