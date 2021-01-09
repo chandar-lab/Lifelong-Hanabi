@@ -43,8 +43,8 @@ python cont_multitask.py \
        --sgd_momentum 0.8 \
        --optim_name ${OPTIM_NAME} \
        --batchsize ${BATCH_SIZE} \
-       --max_train_steps 200000000 \
-       --max_eval_steps 500000 \
+       --max_train_steps 1000000000 \
+       --max_eval_steps 2500000 \
        --burn_in_frames 50000 \
        --eval_burn_in_frames 1000 \
        --replay_buffer_size 163840 \
