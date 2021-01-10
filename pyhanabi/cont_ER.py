@@ -286,7 +286,7 @@ if __name__ == "__main__":
             args.priority_weight,
             args.prefetch,
         )
-
+        cont_sad=False
         if "sad" in args.load_fixed_models[task_idx] or learnable_sad==True:
             cont_sad = True
 
@@ -475,7 +475,7 @@ if __name__ == "__main__":
                             args.priority_weight,
                             args.prefetch,
                         )
-
+                        eval_sad=False
                         if eval_fixed_ag_idx != (len(fixed_agents + [fixed_learnable_agent])-1):
                             if "sad" in args.load_fixed_models[eval_fixed_ag_idx]:
                                 eval_sad = True
