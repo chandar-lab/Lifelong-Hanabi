@@ -141,18 +141,6 @@ if __name__ == "__main__":
     print("explore eps:", explore_eps)
     print("avg explore eps:", np.mean(explore_eps))
 
-    games = create_envs(
-        args.num_thread * args.num_game_per_thread,
-        args.seed,
-        args.num_player,
-        args.hand_size,
-        args.train_bomb,
-        explore_eps,
-        args.max_len,
-        args.sad,
-        args.shuffle_obs,
-        args.shuffle_color,
-    )
 ## this is the learnable agent.
     if args.load_learnable_model:
         learnable_agent_name = args.load_learnable_model.split("/")[-1].split(".")[0]
@@ -174,19 +162,37 @@ if __name__ == "__main__":
     elif rnn_type == "gru":
         import r2d2_gru as r2d2_learnable
 
+    learnable_sad=False
+    if "sad" in args.load_learnable_model:
+        learnable_sad=True
+
+    learnable_games = create_envs(
+        args.num_thread * args.num_game_per_thread,
+        args.seed,
+        args.num_player,
+        args.hand_size,
+        args.train_bomb,
+        explore_eps,
+        args.max_len,
+        learnable_sad,
+        args.shuffle_obs,
+        args.shuffle_color,
+    )
+
     learnable_agent = r2d2_learnable.R2D2Agent(
         (args.method == "vdn"),
         args.multi_step,
         args.gamma,
         args.eta,
         args.train_device,
-        games[0].feature_size(),
+        learnable_games[0].feature_size(),
         rnn_hid_dim,
-        games[0].num_action(),
+        learnable_games[0].num_action(),
         num_fflayer,
         num_rnn_layer,
         args.hand_size,
-        False,  # uniform priority
+        False,  
+        sad=learnable_sad
     )
 
     learnable_agent.sync_target_with_online()
@@ -211,24 +217,42 @@ if __name__ == "__main__":
         with open(args.load_model_dir+"/"+opp_model_name+".txt") as f:
             opp_model_args = {**json.load(f)}
 
+        opp_sad=False
+        if "sad" in opp_model:
+            opp_sad = True
+
         if opp_model_args['rnn_type'] == "lstm":
             import r2d2_lstm as r2d2_fixed
         elif opp_model_args['rnn_type'] == "gru":
             import r2d2_gru as r2d2_fixed
         
+        fixed_games = create_envs(
+        args.num_thread * args.num_game_per_thread,
+        args.seed,
+        args.num_player,
+        args.hand_size,
+        args.train_bomb,
+        explore_eps,
+        args.max_len,
+        opp_sad,
+        args.shuffle_obs,
+        args.shuffle_color,
+        )
+
         fixed_agent = r2d2_fixed.R2D2Agent(
             (args.method == "vdn"),
             args.multi_step,
             args.gamma,
             args.eta,
             args.train_device,
-            games[0].feature_size(),
+            fixed_games[0].feature_size(),
             opp_model_args['rnn_hid_dim'],
-            games[0].num_action(),
+            fixed_games[0].num_action(),
             opp_model_args['num_fflayer'],
             opp_model_args['num_rnn_layer'],
             args.hand_size,
-            False,  # uniform priority
+            False,
+            sad=opp_sad
             )
 
         if opp_model:
@@ -255,6 +279,10 @@ if __name__ == "__main__":
 
     for task_idx, fixed_agent in enumerate(fixed_agents):
         print("task idx is ", task_idx)
+
+        if "sad" in args.load_fixed_models[task_idx] or learnable_sad==True:
+            cont_sad = True
+
         games = create_envs(
         args.num_thread * args.num_game_per_thread,
         args.seed,
@@ -263,7 +291,7 @@ if __name__ == "__main__":
         args.train_bomb,
         explore_eps,
         args.max_len,
-        args.sad,
+        cont_sad,
         args.shuffle_obs,
         args.shuffle_color,
         )
@@ -415,6 +443,12 @@ if __name__ == "__main__":
                         args.prefetch,
                     )
 
+                    if eval_fixed_ag_idx != (len(fixed_agents + [fixed_learnable_agent])-1):
+                        if "sad" in args.load_fixed_models[eval_fixed_ag_idx]:
+                            eval_sad = True
+                    elif learnable_sad==True:
+                        eval_sad = True
+
                     eval_games = create_envs(
                         args.eval_num_thread * args.eval_num_game_per_thread,
                         eval_seed,
@@ -423,7 +457,7 @@ if __name__ == "__main__":
                         args.train_bomb,
                         explore_eps,
                         args.max_len,
-                        args.sad,
+                        eval_sad,
                         args.shuffle_obs,
                         args.shuffle_color,
                     )
