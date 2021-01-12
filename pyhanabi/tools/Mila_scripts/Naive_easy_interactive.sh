@@ -9,11 +9,11 @@ INITIAL_LR=0.02
 BATCH_SIZE=32
 OPTIM_NAME="SGD"
 SEED=10
-python cont_EWC.py \
-       --save_dir /miniscratch/${USER}/cont_hanabi_models/final_experiments/EWC/interactive/${OPTIM_NAME}_EWC_offline_easy_${SEED} \
+python cont_ER.py \
+       --save_dir /miniscratch/${USER}/cont_hanabi_models/final_experiments/naive/interactive/${OPTIM_NAME}_naive_easy_${SEED} \
        --load_model_dir ${LOAD_MODEL_DIR} \
        --method iql \
-       --ll_algo EWC \
+       --ll_algo Naive \
        --load_learnable_model ${LOAD_MODEL_DIR}/iql_2p_210.pthw \
        --load_fixed_model ${LOAD_MODEL_DIR}/iql_2p_310.pthw ${LOAD_MODEL_DIR}/vdn_2p_720.pthw \
                           ${LOAD_MODEL_DIR}/vdn_2p_7140.pthw ${LOAD_MODEL_DIR}/iql_op_2p_710.pthw \
@@ -36,9 +36,6 @@ python cont_EWC.py \
        --sgd_momentum 0.8 \
        --optim_name ${OPTIM_NAME} \
        --batchsize ${BATCH_SIZE} \
-       --online 0 \
-       --ewc_lambda 50000 \
-       --ewc_gamma 1 \
        --max_train_steps 200000000 \
        --max_eval_steps 500000 \
        --burn_in_frames 10000 \

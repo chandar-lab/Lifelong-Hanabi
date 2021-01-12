@@ -4,18 +4,21 @@
 ## dropout_p should be 0 for no dropout. dropout_p is drop probability.
 USER="akb"
 EVAL_METHOD="few_shot"
-LOAD_MODEL_DIR="../models/iql_2p"
+LOAD_MODEL_DIR="/miniscratch/akb/cont_hanabi_models/final_model_pool_for_csv"
 INITIAL_LR=0.02
 BATCH_SIZE=32
-OPTIM_NAME="Adam"
+OPTIM_NAME="SGD"
+SEED=10
 python cont_ER.py \
-       --save_dir /miniscratch/${USER}/cont_hanabi_models/exps/${OPTIM_NAME}_None_easy \
+       --save_dir /miniscratch/${USER}/cont_hanabi_models/final_experiments/naive/interactive/${OPTIM_NAME}_naive_hard_${SEED} \
        --load_model_dir ${LOAD_MODEL_DIR} \
        --method iql \
-       --ll_algo None \
-       --load_learnable_model ${LOAD_MODEL_DIR}/iql_2p_5.pthw \
-       --load_fixed_model ${LOAD_MODEL_DIR}/iql_2p_6.pthw ${LOAD_MODEL_DIR}/iql_2p_11.pthw ${LOAD_MODEL_DIR}/iql_2p_113.pthw ${LOAD_MODEL_DIR}/iql_2p_210.pthw \
-       --num_thread 80 \
+       --ll_algo Naive \
+       --load_learnable_model ${LOAD_MODEL_DIR}/iql_2p_210.pthw \
+       --load_fixed_model ${LOAD_MODEL_DIR}/vdn_op_2p_7771.pthw ${LOAD_MODEL_DIR}/vdn_2p_726.pthw \
+                          ${LOAD_MODEL_DIR}/vdn_2p_7140.pthw ${LOAD_MODEL_DIR}/iql_op_2p_600.pthw \
+                          ${LOAD_MODEL_DIR}/vdn_2p_720.pthw \
+       --num_thread 10 \
        --num_game_per_thread 80 \
        --eval_num_thread 10 \
        --eval_num_game_per_thread 80 \
@@ -25,7 +28,7 @@ python cont_ER.py \
        --eps 1.5e-05 \
        --grad_clip 5 \
        --gamma 0.999 \
-       --seed 1 \
+       --seed ${SEED} \
        --initial_lr ${INITIAL_LR} \
        --final_lr 6.25e-05 \
        --lr_gamma 0.2 \
@@ -33,6 +36,8 @@ python cont_ER.py \
        --sgd_momentum 0.8 \
        --optim_name ${OPTIM_NAME} \
        --batchsize ${BATCH_SIZE} \
+       --max_train_steps 200000000 \
+       --max_eval_steps 500000 \
        --burn_in_frames 10000 \
        --eval_burn_in_frames 1000 \
        --replay_buffer_size 32768 \

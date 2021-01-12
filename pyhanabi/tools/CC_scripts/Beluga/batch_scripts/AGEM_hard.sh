@@ -2,8 +2,8 @@
 #SBATCH --account=rrg-bengioy-ad
 #SBATCH --cpus-per-task=8
 #SBATCH --gres=gpu:3
-#SBATCH --mem=150G
-#SBATCH --time=36:00:00
+#SBATCH --mem=180G
+#SBATCH --time=24:00:00
 #SBATCH -o /scratch/akb/final_experiments/out_files/agem/sgd-agem_hard-%j.out
 
 ## specify optim_name to be either Adam or SGD.
@@ -22,10 +22,10 @@ python cont_AGEM.py \
        --load_model_dir ${LOAD_MODEL_DIR} \
        --method iql \
        --ll_algo AGEM \
-       --load_learnable_model ${LOAD_MODEL_DIR}/iql_2p_4.pthw \
-       --load_fixed_model ${LOAD_MODEL_DIR}/sad_2p_2025.pthw ${LOAD_MODEL_DIR}/sad_op_2p_2506.pthw \
-                          ${LOAD_MODEL_DIR}/sad_op_2p_2507.pthw ${LOAD_MODEL_DIR}/vdn_2p_7141.pthw \
-                          ${LOAD_MODEL_DIR}/vdn_op_2p_7741.pthw ${LOAD_MODEL_DIR}/vdn_op_2p_7742.pthw \
+       --load_learnable_model ${LOAD_MODEL_DIR}/iql_2p_210.pthw \
+       --load_fixed_model ${LOAD_MODEL_DIR}/vdn_op_2p_7771.pthw ${LOAD_MODEL_DIR}/vdn_2p_726.pthw \
+                          ${LOAD_MODEL_DIR}/vdn_2p_7140.pthw ${LOAD_MODEL_DIR}/iql_op_2p_600.pthw \
+                          ${LOAD_MODEL_DIR}/vdn_2p_720.pthw \
        --num_thread 10 \
        --num_game_per_thread 80 \
        --eval_num_thread 10 \
