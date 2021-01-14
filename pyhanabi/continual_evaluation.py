@@ -163,12 +163,12 @@ if __name__ == "__main__":
         move_model_0 = "cp " + learnable_agent_args['load_learnable_model'] + " " + final_models_dir+"/"+"model_epoch0_zero_shot.pthw"
         os.system(move_model_0)
 
-    if learnable_agent_args['load_learnable_model'] != "":
-        lr_str = learnable_agent_args['load_learnable_model'].split("/")[-1].split(".")[0]
-    else:
-        lr_str = "no_pretrain"
-    exp_name = lr_str+"_fixed_"+str(len(learnable_agent_args['load_fixed_models']))+"_"+learnable_agent_args['ll_algo'] 
-
+    # if learnable_agent_args['load_learnable_model'] != "":
+    #     lr_str = learnable_agent_args['load_learnable_model'].split("/")[-1].split(".")[0]
+    # else:
+    #     lr_str = "no_pretrain"
+    # exp_name = lr_str+"_fixed_"+str(len(learnable_agent_args['load_fixed_models']))+"_"+learnable_agent_args['ll_algo'] 
+    exp_name = learnable_agent_args['save_dir'].split("/")[-1]
     wandb.init(project="ContPlay_Hanabi_complete", name=exp_name)
     wandb.config.update(learnable_agent_args)
 
