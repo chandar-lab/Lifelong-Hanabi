@@ -211,7 +211,7 @@ if __name__ == "__main__":
 
             for fixed_agent_idx in range(len(args.weight_2)):
                 weight_files = [ag1, args.weight_2[fixed_agent_idx]]
-                mean_score, sem, perfect_rate = evaluate_legacy_model(weight_files, 1000, 1, 0, learnable_agent_args, args, num_run=10)
+                mean_score, sem, perfect_rate = evaluate_legacy_model(weight_files, 1000, 1, 0, learnable_agent_args, args, num_run=5)
 
                 if mean_score > prev_max[fixed_agent_idx]:
                     prev_max[fixed_agent_idx] = mean_score
@@ -256,18 +256,7 @@ if __name__ == "__main__":
             if int(cur_ag_id) > cur_task:
                 avg_fs_future_score += mean_score
             if int(cur_ag_id) == cur_task:
-                avg_fs_score = avg_fs_score / (cur_task+1)
-                avg_fs_future_score = avg_fs_future_score / (total_tasks-(cur_task+1))
                 wandb.log({"epoch_fs_curtask": act_epoch_cnt, "eval_score_fs_curtask": mean_score, "perfect_fs_curtask": perfect_rate, "sem_fs_curtask":sem, "total_act_steps":(total_prev_act_steps + act_steps[act_epoch_cnt-1])})
-                wandb.log({"epoch_fs_avgscore": act_epoch_cnt, "avg_fs_score": avg_fs_score, "total_act_steps":(total_prev_act_steps + act_steps[act_epoch_cnt-1])})
-                wandb.log({"epoch_fs_avg_future_score": act_epoch_cnt, "avg_fs_future_score": avg_fs_future_score, "total_act_steps":(total_prev_act_steps + act_steps[act_epoch_cnt-1])})
-                avg_fs_score = 0
-                avg_fs_future_score = 0
-                if cur_task > 0:
-                    avg_fs_forgetting = avg_forgetting / cur_task
-                    wandb.log({"epoch_fs_avg_forgetting": act_epoch_cnt, "avg_fs_forgetting": avg_fs_forgetting, "total_act_steps":(total_prev_act_steps + act_steps[act_epoch_cnt-1])})
-                    avg_fs_forgetting = 0
-
 
             if cur_task > 0:
                 forgetting_fs = prev_task_max_fs[int(cur_ag_id)] - mean_score
@@ -275,7 +264,22 @@ if __name__ == "__main__":
                     avg_fs_forgetting += forgetting_fs
                 wandb.log({"epoch_fs_forgetting": act_epoch_cnt, "forgetting_fs_"+cur_ag_id: forgetting_fs, "total_act_steps":(total_prev_act_steps + act_steps[act_epoch_cnt-1])})
 
-        if act_epoch_cnt >= learnable_agent_args['num_epoch']*(cur_task+1) and all_done%(total_tasks+1) == 0:
+        if all_done%(total_tasks+1) == 0:
+            avg_fs_score = avg_fs_score / (cur_task+1)
+            wandb.log({"epoch_fs_avgscore": act_epoch_cnt, "avg_fs_score": avg_fs_score, "total_act_steps":(total_prev_act_steps + act_steps[act_epoch_cnt-1])})
+            avg_fs_future_score = avg_fs_future_score / (total_tasks-(cur_task+1))
+            wandb.log({"epoch_fs_avg_future_score": act_epoch_cnt, "avg_fs_future_score": avg_fs_future_score, "total_act_steps":(total_prev_act_steps + act_steps[act_epoch_cnt-1])})
+            avg_fs_score = 0
+            avg_fs_future_score = 0
+            
+            if cur_task > 0:
+                avg_fs_forgetting = avg_fs_forgetting / cur_task
+                wandb.log({"epoch_fs_avg_forgetting": act_epoch_cnt, "avg_fs_forgetting": avg_fs_forgetting, "total_act_steps":(total_prev_act_steps + act_steps[act_epoch_cnt-1])})
+                avg_fs_forgetting = 0
+                
+
+                
+        if act_epoch_cnt == learnable_agent_args['num_epoch']*(cur_task+1) and all_done%(total_tasks+1) == 0:
             cur_task += 1
             for fixed_agent_idx in range(len(args.weight_2)):
                 prev_task_max[fixed_agent_idx] = prev_max[fixed_agent_idx]
