@@ -21,10 +21,10 @@ python cont_multitask.py \
        --save_dir /scratch/${USER}/final_experiments/MTL/batch/${OPTIM_NAME}_MTL_hard_${SEED} \
        --load_model_dir ${LOAD_MODEL_DIR} \
        --method iql \
-       --load_learnable_model ${LOAD_MODEL_DIR}/iql_2p_4.pthw \
-       --load_fixed_model ${LOAD_MODEL_DIR}/sad_2p_2025.pthw ${LOAD_MODEL_DIR}/sad_op_2p_2506.pthw \
-                          ${LOAD_MODEL_DIR}/sad_op_2p_2507.pthw ${LOAD_MODEL_DIR}/vdn_2p_7141.pthw \
-                          ${LOAD_MODEL_DIR}/vdn_op_2p_7741.pthw ${LOAD_MODEL_DIR}/vdn_op_2p_7742.pthw \
+       --load_learnable_model ${LOAD_MODEL_DIR}/iql_2p_210.pthw \
+       --load_fixed_model ${LOAD_MODEL_DIR}/vdn_op_2p_7771.pthw ${LOAD_MODEL_DIR}/vdn_2p_726.pthw \
+                          ${LOAD_MODEL_DIR}/vdn_2p_7140.pthw ${LOAD_MODEL_DIR}/iql_op_2p_600.pthw \
+                          ${LOAD_MODEL_DIR}/vdn_2p_720.pthw  \
        --num_thread 10 \
        --num_game_per_thread 80 \
        --eval_num_thread 10 \

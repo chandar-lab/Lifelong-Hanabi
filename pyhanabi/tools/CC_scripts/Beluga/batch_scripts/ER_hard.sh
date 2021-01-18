@@ -24,8 +24,8 @@ python cont_ER.py \
        --ll_algo ER \
        --load_learnable_model ${LOAD_MODEL_DIR}/iql_2p_210.pthw \
        --load_fixed_model ${LOAD_MODEL_DIR}/vdn_op_2p_7771.pthw ${LOAD_MODEL_DIR}/vdn_2p_726.pthw \
-	                  ${LOAD_MODEL_DIR}/vdn_2p_7140.pthw ${LOAD_MODEL_DIR}/iql_op_2p_600.pthw \
-			  ${LOAD_MODEL_DIR}/vdn_2p_720.pthw \
+                          ${LOAD_MODEL_DIR}/vdn_2p_7140.pthw ${LOAD_MODEL_DIR}/iql_op_2p_600.pthw \
+                         ${LOAD_MODEL_DIR}/vdn_2p_720.pthw \
        --num_thread 10 \
        --num_game_per_thread 80 \
        --eval_num_thread 10 \
