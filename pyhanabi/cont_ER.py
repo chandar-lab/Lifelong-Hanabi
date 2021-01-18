@@ -453,7 +453,7 @@ if __name__ == "__main__":
 
             eval_seed = (9917 + epoch * 999999) % 7777777
 
-            if (epoch+1) % args.eval_freq == 0 or task_done == True:
+            if (epoch+1) % args.eval_freq == 0 or epoch == 0 or task_done == True:
                 context.pause()
                 for eval_fixed_ag_idx, eval_fixed_agent in enumerate(fixed_agents + [fixed_learnable_agent]):
                     print("evaluating learnable agent with fixed agent %d "%eval_fixed_ag_idx)
