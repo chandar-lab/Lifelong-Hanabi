@@ -52,8 +52,13 @@ def evaluate_legacy_model(
         output_dim = state_dict["fc_a.weight"].size()[0]
 
         learnable_pretrain = True
-        if i == 0 and learnable_agent_args['load_learnable_model'] != "":
-            agent_args_file = learnable_agent_args['load_learnable_model'][:-4]+"txt"
+        #if i == 0 and learnable_agent_args['load_learnable_model'] != "":
+        #    agent_args_file = learnable_agent_args['load_learnable_model'][:-4]+"txt"
+        learnable_agent_name = "/".join(weight_files[1].split("/")[:-1])+"/"+learnable_agent_args['load_learnable_model'].split("/")[-1]
+        print("learnable agent name ", learnable_agent_name)
+        if i == 0 and learnable_agent_name != "":
+            agent_args_file = learnable_agent_name[:-4]+"txt"
+            print("agent_args_file is ", agent_args_file)
         elif i == 0:
             learnable_pretrain = False
         else:
