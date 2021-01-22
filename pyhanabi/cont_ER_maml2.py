@@ -278,7 +278,6 @@ if __name__ == "__main__":
 
     act_group_list, fine_tune_act_group_list = [], []
     context_list, fine_tune_context_list = [], []
-    fine_tune_optim_list = []
     fine_tune_replay_buffer_list = []
 
     for task_idx, fixed_agent in enumerate(fixed_agents):
@@ -330,15 +329,6 @@ if __name__ == "__main__":
         context_list[task_idx].pause()
 
         print("Few-shot learners with fixed agent %d " % task_idx)
-        fine_tune_learnable_agent = learnable_agent.clone(args.train_device, {"vdn": False})
-        if args.optim_name == "Adam":
-            fine_tune_optim = torch.optim.Adam(fine_tune_learnable_agent.online_net.parameters(),
-                                               lr=args.final_lr,
-                                               eps=args.eps)
-        elif args.optim_name == "SGD":
-            fine_tune_optim = torch.optim.SGD(fine_tune_learnable_agent.online_net.parameters(), lr=args.final_lr,
-                                              momentum=args.sgd_momentum)
-        fine_tune_optim_list.append(fine_tune_optim)
 
         fine_tune_replay_buffer_list.append(rela.RNNPrioritizedReplay(
             args.ft_replay_buffer_size,
@@ -429,6 +419,15 @@ if __name__ == "__main__":
             fine_tune_learnable_agent_list = []
             for fine_tune_fixed_ag_idx, fine_tune_fixed_agent in enumerate(fixed_agents):
                 fine_tune_learnable_agent_list.append(learnable_agent.clone(args.train_device, {"vdn": False}))
+                if args.optim_name == "Adam":
+                    fine_tune_optim = torch.optim.Adam(fine_tune_learnable_agent_list[fine_tune_fixed_ag_idx].online_net.parameters(),
+                                               lr=args.final_lr,
+                                               eps=args.eps)
+                elif args.optim_name == "SGD":
+                    fine_tune_optim = torch.optim.SGD(fine_tune_learnable_agent_list[fine_tune_fixed_ag_idx].online_net.parameters(), 
+                                                lr=args.final_lr,
+                                                momentum=args.sgd_momentum)
+
                 fine_tune_context_list[fine_tune_fixed_ag_idx].resume()
                 fine_tune_tachometer = utils.Tachometer()
                 fine_tune_stat = common_utils.MultiCounter(args.save_dir)
@@ -465,8 +464,8 @@ if __name__ == "__main__":
                     g_norm = torch.nn.utils.clip_grad_norm_(
                         fine_tune_learnable_agent_list[fine_tune_fixed_ag_idx].online_net.parameters(), args.grad_clip
                     )
-                    fine_tune_optim_list[fine_tune_fixed_ag_idx].step()
-                    fine_tune_optim_list[fine_tune_fixed_ag_idx].zero_grad()
+                    fine_tune_optim.step()
+                    fine_tune_optim.zero_grad()
 
                     torch.cuda.synchronize()
 
