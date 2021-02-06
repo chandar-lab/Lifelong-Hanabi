@@ -171,9 +171,9 @@ if __name__ == "__main__":
         num_rnn_layer = args.num_rnn_layer
 
     if rnn_type == "lstm":
-        import r2d2_lstm as r2d2_learnable
+        import r2d2_lstm_agid as r2d2_learnable
     elif rnn_type == "gru":
-        import r2d2_gru as r2d2_learnable
+        import r2d2_gru_agid as r2d2_learnable
 
     agent_ids = torch.eye(5)
     in_id_dim = 5
@@ -218,9 +218,9 @@ if __name__ == "__main__":
             opp_model_args = {**json.load(f)}
 
         if opp_model_args['rnn_type'] == "lstm":
-            import r2d2_lstm as r2d2_fixed
+            import r2d2_lstm_agid as r2d2_fixed
         elif opp_model_args['rnn_type'] == "gru":
-            import r2d2_gru as r2d2_fixed
+            import r2d2_gru_agid as r2d2_fixed
 
         fixed_agent = r2d2_fixed.R2D2Agent(
             (args.method == "vdn"),

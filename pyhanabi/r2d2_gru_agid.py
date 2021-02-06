@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from typing import Tuple, Dict
 import common_utils
 
@@ -18,36 +17,26 @@ class R2D2Net(torch.jit.ScriptModule):
         self.num_agid_layers = num_agid_layers
         self.num_rnn_layer = num_rnn_layer
         self.hand_size = hand_size
-        #print("number agid layers inside R2D2Net is ", num_agid_layers)
-        #if self.num_fflayer > 1:
-        #    layers = [nn.Linear(self.in_dim, self.hid_dim), nn.ReLU()]
-        #else:
-        #    layers = [nn.Linear(self.in_dim, self.hid_dim)]
+
         layers = [nn.Linear(self.in_dim, self.hid_dim), nn.ReLU()]
         for i in range(1, self.num_fflayer):
             layers += [nn.Linear(self.hid_dim, self.hid_dim), nn.ReLU()]
-            #layers += [nn.Linear(self.hid_dim, self.hid_dim)]
+        
+        self.net = nn.Sequential(*layers).to(device)    
 
-        self.net = nn.Sequential(*layers).to(device)
-
-        #if self.num_agid_layers > 1:
-        #    layers_ag_id = [nn.Linear(self.in_id_dim, self.hid_dim), nn.ReLU()]
-        #else:
-        #    layers_ag_id = [nn.Linear(self.in_id_dim, self.hid_dim)]
         layers_ag_id = [nn.Linear(self.in_id_dim, self.hid_dim), nn.ReLU()]
         for i in range(1, self.num_agid_layers):
             layers_ag_id += [nn.Linear(self.hid_dim, self.hid_dim), nn.ReLU()]
-            #layers_ag_id += [nn.Linear(self.hid_dim, self.hid_dim)]
 
         self.net_embed_id = nn.Sequential(*layers_ag_id).to(device)
 
-        self.lstm = nn.LSTM(
+        self.gru = nn.GRU(
             self.hid_dim,
             self.hid_dim,
             num_layers=self.num_rnn_layer,  # , batch_first=True
         ).to(device)
 
-        self.lstm.flatten_parameters()
+        self.gru.flatten_parameters()
 
         self.fc_v = nn.Linear(self.hid_dim, 1)
         self.fc_a = nn.Linear(self.hid_dim, self.out_dim)
@@ -58,12 +47,12 @@ class R2D2Net(torch.jit.ScriptModule):
     @torch.jit.script_method
     def get_h0(self, batchsize: int) -> Dict[str, torch.Tensor]:
         shape = (self.num_rnn_layer, batchsize, self.hid_dim)
-        hid = {"h0": torch.zeros(*shape), "c0": torch.zeros(*shape)}
+        hid = {"h0": torch.zeros(*shape)}
         return hid
 
     @torch.jit.script_method
     def act(
-            self, priv_s: torch.Tensor, hid: Dict[str, torch.Tensor], ag_id : torch.Tensor,
+        self, priv_s: torch.Tensor, hid: Dict[str, torch.Tensor], ag_id : torch.Tensor,
     ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
         assert priv_s.dim() == 2, "dim should be 2, [batch, dim], get %d" % s.dim()
 
@@ -75,16 +64,12 @@ class R2D2Net(torch.jit.ScriptModule):
         else:
             ag_id = ag_id.to(x.device)
             x_id = self.net_embed_id(ag_id)
-            x_fused = x * x_id
-            #x_fused = F.relu(x * x_id)
-            #x_fused = F.relu(x + x_id)
+            x_fused = x * x_id 
 
-        o, (h, c) = self.lstm(x_fused, (hid["h0"], hid["c0"]))
+        o, (h) = self.gru(x_fused, (hid["h0"]))
         a = self.fc_a(o)
         a = a.squeeze(0)
-
-        return a, {"h0": h, "c0": c}#, t_pred
-
+        return a, {"h0": h}#, t_pred
 
     @torch.jit.script_method
     def forward(
@@ -111,16 +96,12 @@ class R2D2Net(torch.jit.ScriptModule):
         else:
             ag_id = ag_id.to(x.device)
             x_id = self.net_embed_id(ag_id)
-            # print("x shape is ", x.size())
-            # print("x id shape is ", x_id.size())
             x_fused = x * x_id
-            #x_fused = F.relu(x * x_id)
-           # x_fused = F.relu(x + x_id)
 
         if len(hid) == 0:
-            o, (h, c) = self.lstm(x_fused)
+            o, (h) = self.gru(x_fused)
         else:
-            o, (h, c) = self.lstm(x_fused, (hid["h0"], hid["c0"]))
+            o, (h) = self.gru(x_fused, hid["h0"])
 
         a = self.fc_a(o)
         v = self.fc_v(o)
@@ -198,6 +179,7 @@ class R2D2Agent(torch.jit.ScriptModule):
         sad=False
     ):
         super().__init__()
+        
         if agent_id is None:
             self.agent_id = -1*torch.ones([in_id_dim])
         else:
@@ -206,11 +188,9 @@ class R2D2Agent(torch.jit.ScriptModule):
         self.online_net = R2D2Net(
             device, in_dim, in_id_dim, hid_dim, out_dim, num_fflayer, num_agid_layers, num_rnn_layer, hand_size
         ).to(device)
-
         self.target_net = R2D2Net(
             device, in_dim, in_id_dim, hid_dim, out_dim, num_fflayer, num_agid_layers, num_rnn_layer, hand_size
         ).to(device)
-
         self.vdn = vdn
         self.multi_step = multi_step
         self.gamma = gamma
@@ -254,7 +234,7 @@ class R2D2Agent(torch.jit.ScriptModule):
         self,
         priv_s: torch.Tensor,
         legal_move: torch.Tensor,
-        hid: Dict[str, torch.Tensor],
+        hid: Dict[str, torch.Tensor]
     ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
         adv, new_hid = self.online_net.act(priv_s, hid, self.agent_id)
         legal_adv = (1 + adv - adv.min()) * legal_move
@@ -275,7 +255,7 @@ class R2D2Agent(torch.jit.ScriptModule):
             _priv_s = obs["priv_s_gen"]
 
         if self.vdn:
-            obsize, ibsize, num_player = obs["priv_s"].size()[:3]
+            obsize, ibsize, num_player = _priv_s.size()[:3]
             priv_s = _priv_s.flatten(0, 2)
             legal_move = obs["legal_move"].flatten(0, 2)
             eps = obs["eps"].flatten(0, 2)
@@ -288,7 +268,6 @@ class R2D2Agent(torch.jit.ScriptModule):
 
         hid = {
             "h0": obs["h0"].flatten(0, 1).transpose(0, 1).contiguous(),
-            "c0": obs["c0"].flatten(0, 1).transpose(0, 1).contiguous(),
         }
 
         greedy_action, new_hid = self.greedy_act(priv_s, legal_move, hid)
@@ -315,13 +294,11 @@ class R2D2Agent(torch.jit.ScriptModule):
             self.online_net.hid_dim
         )
         h0 = new_hid["h0"].transpose(0, 1).view(*hid_shape)
-        c0 = new_hid["c0"].transpose(0, 1).view(*hid_shape)
 
         reply = {
             "a": action.detach().cpu(),
             "greedy_a": greedy_action.detach().cpu(),
             "h0": h0.contiguous().detach().cpu(),
-            "c0": c0.contiguous().detach().cpu(),
         }
         return reply
 
@@ -335,7 +312,6 @@ class R2D2Agent(torch.jit.ScriptModule):
 
         obsize, ibsize, num_player = 0, 0, 0
         flatten_end = 0
-        
         if self.sad:
             _priv_s = input_["priv_s"]
             _next_priv_s = input_["next_priv_s"]
@@ -361,15 +337,13 @@ class R2D2Agent(torch.jit.ScriptModule):
 
         hid = {
             "h0": input_["h0"].flatten(0, 1).transpose(0, 1).contiguous(),
-            "c0": input_["c0"].flatten(0, 1).transpose(0, 1).contiguous(),
         }
         next_hid = {
             "h0": input_["next_h0"].flatten(0, 1).transpose(0, 1).contiguous(),
-            "c0": input_["next_c0"].flatten(0, 1).transpose(0, 1).contiguous(),
         }
         reward = input_["reward"].flatten(0, 1)
         bootstrap = input_["bootstrap"].flatten(0, 1)
-         
+
         online_qa = self.online_net(priv_s, legal_move, online_a, hid, self.agent_id)[0]
         next_a, _ = self.greedy_act(
             next_priv_s, next_legal_move, next_hid)
@@ -431,7 +405,7 @@ class R2D2Agent(torch.jit.ScriptModule):
         # i.e. no terminal in the middle
         online_qa, greedy_a, _, lstm_o = self.online_net(
             priv_s, legal_move, action, hid, self.agent_id)
-        # print("priv s shape inside td error is ", priv_s.size())
+
         # if batch_idx == 5:
         #     print("x norm is ", torch.norm(self.online_net.net(priv_s)).detach().item())
 
@@ -491,7 +465,7 @@ class R2D2Agent(torch.jit.ScriptModule):
         stat["aux1"].feed(avg_xent1)
         return pred_loss1
 
-    def loss(self, batch, pred_weight, stat, batch_idx):
+    def loss(self, batch, pred_weight, stat):
         err, lstm_o = self.td_error(
             batch.obs,
             batch.h0,
@@ -500,10 +474,8 @@ class R2D2Agent(torch.jit.ScriptModule):
             batch.terminal,
             batch.bootstrap,
             batch.seq_len,
-            stat,
-            batch_idx
+            stat
         )
-
         rl_loss = nn.functional.smooth_l1_loss(
             err, torch.zeros_like(err), reduction="none"
         )
