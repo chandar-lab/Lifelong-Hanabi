@@ -210,7 +210,8 @@ if __name__ == "__main__":
     eval_agent = learnable_agent.clone(args.train_device, {"vdn": False})
 
     fixed_learnable_agent = learnable_agent.clone(args.train_device, {"vdn": False})
-
+    fine_tune_learnable_agent = learnable_agent.clone(args.train_device, {"vdn": False})
+    
     fixed_agents = []
 
     for opp_idx, opp_model in enumerate(args.load_fixed_models):
