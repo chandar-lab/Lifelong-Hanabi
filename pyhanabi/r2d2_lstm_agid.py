@@ -491,7 +491,7 @@ class R2D2Agent(torch.jit.ScriptModule):
         stat["aux1"].feed(avg_xent1)
         return pred_loss1
 
-    def loss(self, batch, pred_weight, stat, batch_idx):
+    def loss(self, batch, pred_weight, stat):
         err, lstm_o = self.td_error(
             batch.obs,
             batch.h0,
@@ -500,8 +500,7 @@ class R2D2Agent(torch.jit.ScriptModule):
             batch.terminal,
             batch.bootstrap,
             batch.seq_len,
-            stat,
-            batch_idx
+            stat
         )
 
         rl_loss = nn.functional.smooth_l1_loss(

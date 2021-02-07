@@ -35,6 +35,7 @@ def parse_args():
     parser.add_argument("--train_bomb", type=int, default=0)
     parser.add_argument("--eval_bomb", type=int, default=0)
     parser.add_argument("--sad", type=int, default=0)
+    parser.add_argument("--is_rand", action="store_true", default=True)
     parser.add_argument("--num_player", type=int, default=2)
     parser.add_argument("--hand_size", type=int, default=5)
 
@@ -175,8 +176,8 @@ if __name__ == "__main__":
     elif rnn_type == "gru":
         import r2d2_gru_agid as r2d2_learnable
 
-    agent_ids = torch.eye(5)
-    in_id_dim = 5
+    agent_ids = torch.eye(6)
+    in_id_dim = 6
     learnable_agent = r2d2_learnable.R2D2Agent(
             (args.method == "vdn"),
             args.multi_step,
@@ -293,7 +294,8 @@ if __name__ == "__main__":
             args.eta,
             args.max_len,
             args.num_player,
-            replay_buffer,
+            args.is_rand,
+            replay_buffer
         )
 
         assert args.shuffle_obs == False, 'not working with 2nd order aux'
@@ -381,13 +383,13 @@ if __name__ == "__main__":
                     ## TODO: find a better solution instead of this hack slicing priority.
                     ## pseudo loss/priority computation for updating priority
                     for prev_task_idx in range(len(episodic_memory)):
-                        _, p = learnable_agent.loss(prev_tasks_b[prev_task_idx], args.pred_weight, stat, 0)
+                        _, p = learnable_agent.loss(prev_tasks_b[prev_task_idx], args.pred_weight, stat)
                         p = rela.aggregate_priority(
                         p.cpu(), prev_tasks_b[prev_task_idx].seq_len.cpu(), args.eta
                         )
                         episodic_memory[prev_task_idx].update_priority(p)
 
-                loss, priority = learnable_agent.loss(batch, args.pred_weight, stat, batch_idx)
+                loss, priority = learnable_agent.loss(batch, args.pred_weight, stat)
 
                 priority = rela.aggregate_priority(
                     priority.cpu(), batch.seq_len.cpu(), args.eta
@@ -489,6 +491,7 @@ if __name__ == "__main__":
                             args.eta,
                             args.max_len,
                             args.num_player,
+                            args.is_rand,
                             eval_replay_buffer,
                         )
                         eval_context, eval_threads = create_threads(
@@ -518,7 +521,7 @@ if __name__ == "__main__":
                                 torch.cuda.synchronize()
                                 stopwatch.time("sync and updating")
 
-                                loss, priority = few_shot_learnable_agent.loss(batch, args.pred_weight, eval_stat, eval_batch_idx)
+                                loss, priority = few_shot_learnable_agent.loss(batch, args.pred_weight, eval_stat)
 
                                 priority = rela.aggregate_priority(
                                     priority.cpu(), batch.seq_len.cpu(), args.eta
