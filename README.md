@@ -38,6 +38,8 @@ cd model
 sh download.sh
 ```
 Or run the following command to download all 100 pre-trained agents to create the full Cross-Play matrix.
+You can find a detailed description of each agent's configs and architectures here:
+`misc/Pre-trained agents pool for Continual Hanabi.xlsx`
 
 To evaluate all the agents with each other, simply run:
 ```bash
@@ -51,7 +53,7 @@ python tools/eval_model.py --weight ../models/sad_2p_10.pthw --num_player 2
 cd pyhanabi
 sh tools/dev.sh
 ```
-
+This step creates a folder called ... which contains the zero-shot and few-shot model checkpoints. 
 
 ### 3- Testing
 
@@ -60,5 +62,8 @@ sh tools/dev.sh
 cd pyhanabi
 python final_evaluation.py
 ```
+
+## Plot results
+We used wandb for plotting the results. But results are also stored as `.csv` file which can be found here: `results/` 
 
 
