@@ -36,7 +36,7 @@ gdown --id 1SHnPa5TkE9WuQPq7lCvshkDVBhAG_QNm
 You can find a detailed description of each agent's configs and architectures here:
 `misc/Pre-trained agents pool for Continual Hanabi.xlsx`
 
-!!! To run any .sh file, update `<path-to-pretrained-model-pool-dir>` and `<save-dir>`, accordingly.
+!!! To run any `.sh` file, update `<path-to-pretrained-model-pool-dir>` and `<save-dir>`, accordingly.
 
 #### Reproduce the Cross-Play matrix:
 To evaluate all the agents with each other, simply run:
