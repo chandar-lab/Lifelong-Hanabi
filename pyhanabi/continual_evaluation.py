@@ -1,12 +1,11 @@
 ''' Evaluating all the checkpoints saved periodically during train args.eval_freq
-Usually done only in Mila cluster as we need wandb to log.
 Requires only 1 GPU.
 Sample usage: 
 python continual_evaluation.py 
---weight_1_dir /miniscratch/akb/cont_hanabi_models/exps/ind_RB_few_shot_ER_noeval_easy 
---weight_2 ../models/iql_2p/iql_2p_6.pthw ../models/iql_2p/iql_2p_11.pthw ../models/iql_2p/iql_2p_113.pthw ../models/iql_2p/iql_2p_210.pthw ../models/iql_2p/iql_2p_5.pthw 
+--weight_1_dir <path-to-saved-ckpts-dir> 
+--weight_2 <list of ckpts separated by a space> i.e a.pthw b.pthw ...
 --num_player 2
-note the last arg of --weight_2 is the self-play that is the agent that was being trained.
+note the last arg of --weight_2 is the self-play agent that is the agent that was being trained in continual fashion...
 '''
 
 import argparse
@@ -28,19 +27,19 @@ from eval import evaluate
 def evaluate_legacy_model(
     weight_files, num_game, seed, bomb, learnable_agent_args, args, num_run=1, verbose=True
 ):
-    # model_lockers = []
-    # greedy_extra = 0
     agents = []
     num_player = len(weight_files)
     assert num_player > 1, "1 weight file per player"
 
+    env_sad = False
     for i, weight_file in enumerate(weight_files):
         if verbose:
             print(
                 "evaluating: %s\n\tfor %dx%d games" % (weight_file, num_run, num_game)
             )
-        if "sad" in weight_file or "aux" in weight_file:
+        if "sad" in weight_file:
             sad = True
+            env_sad = True
         else:
             sad = False
 
@@ -52,13 +51,10 @@ def evaluate_legacy_model(
         output_dim = state_dict["fc_a.weight"].size()[0]
 
         learnable_pretrain = True
-        #if i == 0 and learnable_agent_args['load_learnable_model'] != "":
-        #    agent_args_file = learnable_agent_args['load_learnable_model'][:-4]+"txt"
         learnable_agent_name = "/".join(weight_files[1].split("/")[:-1])+"/"+learnable_agent_args['load_learnable_model'].split("/")[-1]
-        print("learnable agent name ", learnable_agent_name)
+
         if i == 0 and learnable_agent_name != "":
             agent_args_file = learnable_agent_name[:-4]+"txt"
-            print("agent_args_file is ", agent_args_file)
         elif i == 0:
             learnable_pretrain = False
         else:
@@ -85,7 +81,7 @@ def evaluate_legacy_model(
             import r2d2_gru as r2d2 
 
         agent = r2d2.R2D2Agent(
-        False, 3, 0.999, 0.9, device, input_dim, rnn_hid_dim, output_dim, num_fflayer, num_rnn_layer, 5, False
+        False, 3, 0.999, 0.9, device, input_dim, rnn_hid_dim, output_dim, num_fflayer, num_rnn_layer, 5, False, sad=sad
         ).to(device)
 
         utils.load_weight(agent.online_net, weight_file, device)
@@ -110,7 +106,7 @@ def evaluate_legacy_model(
             num_game * i + seed,
             bomb,
             0,
-            sad,
+            env_sad,
         )
         scores.extend(score)
         perfect += p
@@ -161,18 +157,11 @@ if __name__ == "__main__":
             st = float(ac_st[:-2])*float(1000000)
             act_steps.append(st)
 
-    print("act_steps list is ", act_steps)
-
     ## move learnable model to final_models_dir
     if learnable_agent_args['load_learnable_model'] != "":
         move_model_0 = "cp " + learnable_agent_args['load_learnable_model'] + " " + final_models_dir+"/"+"model_epoch0_zero_shot.pthw"
         os.system(move_model_0)
 
-    # if learnable_agent_args['load_learnable_model'] != "":
-    #     lr_str = learnable_agent_args['load_learnable_model'].split("/")[-1].split(".")[0]
-    # else:
-    #     lr_str = "no_pretrain"
-    # exp_name = lr_str+"_fixed_"+str(len(learnable_agent_args['load_fixed_models']))+"_"+learnable_agent_args['ll_algo'] 
     exp_name = learnable_agent_args['save_dir'].split("/")[-1]
     wandb.init(project="ContPlay_Hanabi_complete", name=exp_name)
     wandb.config.update(learnable_agent_args)
@@ -281,8 +270,6 @@ if __name__ == "__main__":
                 avg_fs_forgetting = avg_fs_forgetting / cur_task
                 wandb.log({"epoch_fs_avg_forgetting": act_epoch_cnt, "avg_fs_forgetting": avg_fs_forgetting, "total_act_steps":(total_prev_act_steps + act_steps[act_epoch_cnt-1])})
                 avg_fs_forgetting = 0
-                
-
                 
         if act_epoch_cnt == learnable_agent_args['num_epoch']*(cur_task+1) and all_done%(total_tasks+1) == 0:
             cur_task += 1
