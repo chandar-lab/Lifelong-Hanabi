@@ -1,7 +1,7 @@
 ''' Evaluating all the checkpoints saved periodically during train args.eval_freq
 Requires only 1 GPU.
 Sample usage: 
-python final_evaluation.py 
+python testing.py 
 --weight_1_dir <path-to-final-eval-models-dir>
 --weight_2 <list of ckpts separated by a space> i.e a.pthw b.pthw ...
 --num_player 2
