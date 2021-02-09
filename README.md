@@ -21,12 +21,8 @@ If you found this work useful, please consider citing our [paper]().
 ```
 
 ## Requirements and Installation
-We have been using `pytorch-1.5.1`, `cuda-10.1`, and `cudnn-v7.6.5` in our development environment.
-```bash
-# create new conda env
-conda create -n hanabi python=3.7
-conda activate hanabi
-```
+Detailed description of installation steps is given [here](https://docs.google.com/document/d/1mYGzWU_5ELupcNe2YsWrFunSBhTVXXy9Fx694qCL2pA/edit?usp=sharing). 
+
 ## Run
 Lifelong Hanabi consists of 3 phases: 1- Pre-training, 2- Continual training, 3- Testing 
 
@@ -34,29 +30,36 @@ Lifelong Hanabi consists of 3 phases: 1- Pre-training, 2- Continual training, 3-
 
 Run the following command to download the pre-trained agents used in the paper.
 ```bash
-cd model
-sh download.sh
+pip install gdown
+gdown --id 1SHnPa5TkE9WuQPq7lCvshkDVBhAG_QNm
 ```
-Or run the following command to download all 100 pre-trained agents to create the full Cross-Play matrix.
 You can find a detailed description of each agent's configs and architectures here:
 `misc/Pre-trained agents pool for Continual Hanabi.xlsx`
 
+!!! To run any .sh file, update `<path-to-pretrained-model-pool-dir>` , accordingly.
+
+#### Reproduce the Cross-Play matrix:
 To evaluate all the agents with each other, simply run:
 ```bash
 cd pyhanabi
-python tools/eval_model.py --weight ../models/sad_2p_10.pthw --num_player 2
+sh generate_cp.sh
 ```
 
 ### 2- Continual Training
 
 ```bash
 cd pyhanabi
-sh tools/dev.sh
+sh tools/continual_learning_scripts/ER_easy_interactive.sh
 ```
 This step creates a folder called ... which contains the zero-shot and few-shot model checkpoints. 
 
-### 3- Testing
+To plot the continual training results, run
+```bash
+cd pyhanabi
+sh tools/continual_evaluation.sh
+```
 
+### 3- Testing
 
 ```bash
 cd pyhanabi
