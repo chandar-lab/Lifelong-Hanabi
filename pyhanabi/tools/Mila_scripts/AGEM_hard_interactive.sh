@@ -2,15 +2,14 @@
 ## specify optim_name to be either Adam or SGD.
 ## specify --decay_lr for learning rate decay.
 ## dropout_p should be 0 for no dropout. dropout_p is drop probability.
-USER="akb"
 EVAL_METHOD="few_shot"
-LOAD_MODEL_DIR="/miniscratch/akb/cont_hanabi_models/final_model_pool_for_csv"
+LOAD_MODEL_DIR=<path-to-pretrained-model-pool-dir>
 INITIAL_LR=0.02
 BATCH_SIZE=32
 OPTIM_NAME="SGD"
 SEED=10
 python cont_AGEM.py \
-       --save_dir /miniscratch/${USER}/cont_hanabi_models/final_experiments/AGEM/interactive/${OPTIM_NAME}_AGEM_hard_${SEED} \
+       --save_dir <save-dir> \
        --load_model_dir ${LOAD_MODEL_DIR} \
        --method iql \
        --ll_algo AGEM \
