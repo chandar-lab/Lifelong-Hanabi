@@ -36,7 +36,7 @@ gdown --id 1SHnPa5TkE9WuQPq7lCvshkDVBhAG_QNm
 You can find a detailed description of each agent's configs and architectures here:
 `misc/Pre-trained agents pool for Continual Hanabi.xlsx`
 
-!!! To run any .sh file, update `<path-to-pretrained-model-pool-dir>` , accordingly.
+!!! To run any .sh file, update `<path-to-pretrained-model-pool-dir>` and `<save-dir>`, accordingly.
 
 #### Reproduce the Cross-Play matrix:
 To evaluate all the agents with each other, simply run:
@@ -46,27 +46,29 @@ sh generate_cp.sh
 ```
 
 ### 2- Continual Training
-
+To train the learner with a set of 5 partners using [ER](https://arxiv.org/abs/1902.10486) method, run:
 ```bash
 cd pyhanabi
 sh tools/continual_learning_scripts/ER_easy_interactive.sh
 ```
-This step creates a folder called ... which contains the zero-shot and few-shot model checkpoints. 
+Zero-shot and few-shot checkpoints will be stored in `<save-dir>`. 
 
-To plot the continual training results, run
+To log the continual training results, run:
+
 ```bash
 cd pyhanabi
 sh tools/continual_evaluation.sh
 ```
+This step needs a [wandb](https://wandb.ai/home) account to plot the results. 
 
 ### 3- Testing
-
+To evaluate the learner against a set of unseen agents, run:
 ```bash
 cd pyhanabi
 python final_evaluation.py
 ```
-
+This step also needs a [wandb](https://wandb.ai/home) account to plot the results. 
 ## Plot results
-We used wandb for plotting the results. But results are also stored as `.csv` file which can be found here: `results/` 
+We used [wandb](https://wandb.ai/home) for plotting the results.
 
 
