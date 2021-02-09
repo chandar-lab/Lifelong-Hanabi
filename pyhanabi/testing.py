@@ -154,7 +154,7 @@ if __name__ == "__main__":
         learnable_agent_args = {**json.load(f)}
 
     exp_name = "final_eval_" + learnable_agent_args["save_dir"].split("/")[-1]
-    wandb.init(project="ContPlay_Hanabi_complete", name=exp_name)
+    wandb.init(project="Lifelong_Hanabi_project", name=exp_name)
     wandb.config.update(learnable_agent_args)
 
     assert os.path.exists(args.weight_1_dir)
