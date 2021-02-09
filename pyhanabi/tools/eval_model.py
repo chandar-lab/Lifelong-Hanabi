@@ -1,9 +1,8 @@
 '''
-This can be run in both Mila and CC clusters as it doesn't require wandb and dumps .csv as output.
 Requires only 1 GPU.
 Sample usage: 
 python tools/eval_model.py --weight_1_dir ../models/iql_2p --num_player 2
-
+It dumps a .csv as output
 '''
 import argparse
 import os
@@ -15,7 +14,7 @@ lib_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(lib_path)
 
 import numpy as np
-# import pandas as pd
+import pandas as pd
 import torch
 import r2d2_gru as r2d2_gru
 import r2d2_lstm as r2d2_lstm
@@ -52,7 +51,6 @@ def evaluate_legacy_model(
         with open(args.weight_1_dir+"/"+agent_name+".txt", 'r') as f:
             agent_args = {**json.load(f)}
 
-        print('Creating the agent, sad: ', sad)
         if agent_args['rnn_type'] == "lstm":
             agent = r2d2_lstm.R2D2Agent(
                 False, 3, 0.999, 0.9, device, input_dim, agent_args['rnn_hid_dim'], output_dim, agent_args['num_fflayer'], agent_args['num_rnn_layer'], 5, False, sad=sad,
@@ -120,10 +118,10 @@ if __name__ == "__main__":
             np.save('scores_data_100', scores_arr)
             np.save('sem_data_100', sem_arr)
 
-    # scores_df = pd.DataFrame(data=scores_arr, index=ag1_names, columns=ag1_names)
-    # sem_df = pd.DataFrame(data=sem_arr, index=ag1_names, columns=ag1_names)
+    scores_df = pd.DataFrame(data=scores_arr, index=ag1_names, columns=ag1_names)
+    sem_df = pd.DataFrame(data=sem_arr, index=ag1_names, columns=ag1_names)
 
-    # scores_df.to_csv('scores_data_100.csv')
-    # sem_df.to_csv('sem_data_100.csv')
+    scores_df.to_csv('scores_data_100.csv')
+    sem_df.to_csv('sem_data_100.csv')
 
 
