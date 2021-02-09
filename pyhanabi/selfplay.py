@@ -32,7 +32,9 @@ def parse_args():
 
     parser.add_argument("--seed", type=int, default=10001)
     parser.add_argument("--gamma", type=float, default=0.99, help="discount factor")
-    parser.add_argument("--eta", type=float, default=0.9, help="eta for aggregate priority")
+    parser.add_argument(
+        "--eta", type=float, default=0.9, help="eta for aggregate priority"
+    )
     parser.add_argument("--train_bomb", type=int, default=0)
     parser.add_argument("--eval_bomb", type=int, default=0)
     parser.add_argument("--sad", type=int, default=0)
@@ -62,10 +64,16 @@ def parse_args():
     parser.add_argument("--burn_in_frames", type=int, default=80000)
     parser.add_argument("--replay_buffer_size", type=int, default=2 ** 20)
     parser.add_argument(
-        "--priority_exponent", type=float, default=0.6, help="prioritized replay alpha",
+        "--priority_exponent",
+        type=float,
+        default=0.6,
+        help="prioritized replay alpha",
     )
     parser.add_argument(
-        "--priority_weight", type=float, default=0.4, help="prioritized replay beta",
+        "--priority_weight",
+        type=float,
+        default=0.4,
+        help="prioritized replay beta",
     )
     parser.add_argument("--max_len", type=int, default=80, help="max seq len")
     parser.add_argument("--prefetch", type=int, default=3, help="#prefetch batch")
@@ -95,9 +103,9 @@ if __name__ == "__main__":
     if not os.path.exists(args.save_dir):
         os.makedirs(args.save_dir)
 
-    args.args_dump_name = args.method + "_2p_"+str(args.seed)+".txt"
-    
-    with open(args.save_dir+"/"+args.args_dump_name, 'w') as f:
+    args.args_dump_name = args.method + "_2p_" + str(args.seed) + ".txt"
+
+    with open(args.save_dir + "/" + args.args_dump_name, "w") as f:
         json.dump(args.__dict__, f, indent=2)
 
     logger_path = os.path.join(args.save_dir, "train.log")
@@ -197,9 +205,12 @@ if __name__ == "__main__":
         replay_buffer,
     )
 
-    assert args.shuffle_obs == False, 'not working with 2nd order aux'
+    assert args.shuffle_obs == False, "not working with 2nd order aux"
     context, threads = create_threads(
-        args.num_thread, args.num_game_per_thread, act_group.actors, games,
+        args.num_thread,
+        args.num_game_per_thread,
+        act_group.actors,
+        games,
     )
     act_group.start()
     context.start()
@@ -266,7 +277,10 @@ if __name__ == "__main__":
         count_factor = args.num_player if args.method == "vdn" else 1
         print("EPOCH: %d" % epoch)
         tachometer.lap(
-            act_group.actors, replay_buffer, args.epoch_len * args.batchsize, count_factor
+            act_group.actors,
+            replay_buffer,
+            args.epoch_len * args.batchsize,
+            count_factor,
         )
         stopwatch.summary()
         stat.summary(epoch)

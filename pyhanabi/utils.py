@@ -24,8 +24,8 @@ def parse_first_dict(lines):
             break
 
     config = "".join(config_lines).replace("'", '"')
-    config = config.replace("True", 'true')
-    config = config.replace("False", 'false')
+    config = config.replace("True", "true")
+    config = config.replace("False", "false")
     config = json.loads(config)
     return config, lines[i + 1 :]
 
@@ -53,7 +53,7 @@ def flatten_dict(d, new_dict):
 def load_agent(weight_file, overwrite):
     """
     overwrite has to contain "device"
-    TODO: this has boltzmann_t in create_envs and boltzmann_act in config 
+    TODO: this has boltzmann_t in create_envs and boltzmann_act in config
     These are probably obsolete and hence might hinder our ability to use it right now.
     """
     cfg = get_train_config(weight_file)
@@ -69,8 +69,8 @@ def load_agent(weight_file, overwrite):
         1,
         cfg["num_player"],
         cfg["train_bomb"],
-        [0], # explore_eps,
-        [100], # boltzmann_t,
+        [0],  # explore_eps,
+        [100],  # boltzmann_t,
         cfg["max_len"],
         cfg["sad"] if "sad" in cfg else cfg["greedy_extra"],
         cfg["shuffle_obs"],
@@ -96,9 +96,11 @@ def load_agent(weight_file, overwrite):
     }
     if cfg["rnn_type"] == "lstm":
         import r2d2_lstm as r2d2_lstm
+
         agent = r2d2_lstm.R2D2Agent(**config).to(config["device"])
     elif cfg["rnn_type"] == "gru":
         import r2d2_gru as r2d2_gru
+
         agent = r2d2_gru.R2D2Agent(**config).to(config["device"])
 
     load_weight(agent.online_net, weight_file, config["device"])
@@ -177,9 +179,9 @@ class Tachometer:
             )
         else:
             print(
-            "Speed: train: %.1f, act: %.1f, buffer_add: %.1f, buffer_size: %d"
-            % (train_rate, act_rate, buffer_rate, replay_buffer.size())
-        )
+                "Speed: train: %.1f, act: %.1f, buffer_add: %.1f, buffer_size: %d"
+                % (train_rate, act_rate, buffer_rate, replay_buffer.size())
+            )
         self.num_act = num_act
         self.num_buffer = num_buffer
         self.num_train += num_train
@@ -190,18 +192,24 @@ class Tachometer:
             )
         else:
             print(
-            "Total Time: %s, %ds"
-            % (common_utils.sec2str(self.total_time), self.total_time)
+                "Total Time: %s, %ds"
+                % (common_utils.sec2str(self.total_time), self.total_time)
             )
         if self.iseval:
             print(
-            "Eval Total Sample: train: %s, act: %s"
-            % (common_utils.num2str(self.num_train), common_utils.num2str(self.num_act))
+                "Eval Total Sample: train: %s, act: %s"
+                % (
+                    common_utils.num2str(self.num_train),
+                    common_utils.num2str(self.num_act),
+                )
             )
         else:
             print(
                 "Total Sample: train: %s, act: %s"
-                % (common_utils.num2str(self.num_train), common_utils.num2str(self.num_act))
+                % (
+                    common_utils.num2str(self.num_train),
+                    common_utils.num2str(self.num_act),
+                )
             )
 
     def lap2(self, actors, num_buffer, num_train):
@@ -252,15 +260,16 @@ def load_weight(model, weight_file, device):
     model.load_state_dict(source_state_dict)
     return
 
+
 def make_batch_ER(args, episodic_memory, batch, weight, stat, learnable_agent):
     prev_tasks_b = []
     prev_tasks_w = []
 
     for prev_task_idx in range(len(episodic_memory)):
-        samples_per_task = (args.batchsize // len(episodic_memory))
+        samples_per_task = args.batchsize // len(episodic_memory)
         n_residual = args.batchsize - (samples_per_task * len(episodic_memory))
         if prev_task_idx < n_residual:
-            samples_per_task += 1 
+            samples_per_task += 1
         b, w = episodic_memory[prev_task_idx].sample(args.batchsize, args.train_device)
         prev_tasks_b.append(b)
         prev_tasks_w.append(w)
@@ -268,20 +277,30 @@ def make_batch_ER(args, episodic_memory, batch, weight, stat, learnable_agent):
         batch_act = {}
         for k in batch.obs.keys():
             if k == "eps":
-                batch_obs[k] = torch.cat([batch.obs[k], b.obs[k][:, :samples_per_task]], dim=1)
+                batch_obs[k] = torch.cat(
+                    [batch.obs[k], b.obs[k][:, :samples_per_task]], dim=1
+                )
             else:
-                batch_obs[k] = torch.cat([batch.obs[k], b.obs[k][:, :samples_per_task, :]], dim=1)
+                batch_obs[k] = torch.cat(
+                    [batch.obs[k], b.obs[k][:, :samples_per_task, :]], dim=1
+                )
 
         batch.obs = batch_obs
 
         for k in batch.action.keys():
-            batch_act[k] = torch.cat([batch.action[k], b.action[k][:, :samples_per_task]], dim=1)
+            batch_act[k] = torch.cat(
+                [batch.action[k], b.action[k][:, :samples_per_task]], dim=1
+            )
 
         batch.action = batch_act
 
         batch.reward = torch.cat([batch.reward, b.reward[:, :samples_per_task]], dim=1)
-        batch.terminal = torch.cat([batch.terminal, b.terminal[:, :samples_per_task]], dim=1)
-        batch.bootstrap = torch.cat([batch.bootstrap, b.bootstrap[:, :samples_per_task]], dim=1)
+        batch.terminal = torch.cat(
+            [batch.terminal, b.terminal[:, :samples_per_task]], dim=1
+        )
+        batch.bootstrap = torch.cat(
+            [batch.bootstrap, b.bootstrap[:, :samples_per_task]], dim=1
+        )
 
         batch.seq_len = torch.cat([batch.seq_len, b.seq_len[:samples_per_task]], dim=0)
         weight = torch.cat([weight, w[:samples_per_task]], dim=0)
@@ -289,11 +308,12 @@ def make_batch_ER(args, episodic_memory, batch, weight, stat, learnable_agent):
     for prev_task_idx in range(len(episodic_memory)):
         _, p = learnable_agent.loss(prev_tasks_b[prev_task_idx], args.pred_weight, stat)
         p = rela.aggregate_priority(
-        p.cpu(), prev_tasks_b[prev_task_idx].seq_len.cpu(), args.eta
+            p.cpu(), prev_tasks_b[prev_task_idx].seq_len.cpu(), args.eta
         )
         episodic_memory[prev_task_idx].update_priority(p)
 
     return batch, weight, episodic_memory
+
 
 def make_batch_AGEM(args, episodic_memory, stat, learnable_agent):
     prev_tasks_b = []
@@ -302,10 +322,10 @@ def make_batch_AGEM(args, episodic_memory, stat, learnable_agent):
     batch_act = {}
 
     for prev_task_idx in range(len(episodic_memory)):
-        samples_per_task = (args.batchsize // len(episodic_memory))
+        samples_per_task = args.batchsize // len(episodic_memory)
         n_residual = args.batchsize - (samples_per_task * len(episodic_memory))
         if prev_task_idx < n_residual:
-            samples_per_task += 1 
+            samples_per_task += 1
         b, w = episodic_memory[prev_task_idx].sample(args.batchsize, args.train_device)
         prev_tasks_b.append(b)
         prev_tasks_w.append(w)
@@ -319,16 +339,22 @@ def make_batch_AGEM(args, episodic_memory, stat, learnable_agent):
         elif prev_task_idx > 0:
             for k in b.obs.keys():
                 if k == "eps":
-                    batch_obs[k] = torch.cat([batch_obs[k], b.obs[k][:, :samples_per_task]], dim=1)
+                    batch_obs[k] = torch.cat(
+                        [batch_obs[k], b.obs[k][:, :samples_per_task]], dim=1
+                    )
                 else:
-                    batch_obs[k] = torch.cat([batch_obs[k], b.obs[k][:, :samples_per_task, :]], dim=1)
+                    batch_obs[k] = torch.cat(
+                        [batch_obs[k], b.obs[k][:, :samples_per_task, :]], dim=1
+                    )
 
         if prev_task_idx == 0:
             for k in b.action.keys():
                 batch_act[k] = b.action[k][:, :samples_per_task]
         elif prev_task_idx > 0:
             for k in b.action.keys():
-                batch_act[k] = torch.cat([batch_act[k], b.action[k][:, :samples_per_task]], dim=1)
+                batch_act[k] = torch.cat(
+                    [batch_act[k], b.action[k][:, :samples_per_task]], dim=1
+                )
 
         if prev_task_idx == 0:
             batch_reward = b.reward[:, :samples_per_task]
@@ -337,13 +363,21 @@ def make_batch_AGEM(args, episodic_memory, stat, learnable_agent):
             batch_seq_len = b.seq_len[:samples_per_task]
             batch_weight = w[:samples_per_task]
         elif prev_task_idx > 0:
-            batch_reward = torch.cat([batch_reward, b.reward[:, :samples_per_task]], dim=1)
-            batch_terminal = torch.cat([batch_terminal, b.terminal[:, :samples_per_task]], dim=1)
-            batch_bootstrap = torch.cat([batch_bootstrap, b.bootstrap[:, :samples_per_task]], dim=1)
-            batch_seq_len = torch.cat([batch_seq_len, b.seq_len[:samples_per_task]], dim=0)
+            batch_reward = torch.cat(
+                [batch_reward, b.reward[:, :samples_per_task]], dim=1
+            )
+            batch_terminal = torch.cat(
+                [batch_terminal, b.terminal[:, :samples_per_task]], dim=1
+            )
+            batch_bootstrap = torch.cat(
+                [batch_bootstrap, b.bootstrap[:, :samples_per_task]], dim=1
+            )
+            batch_seq_len = torch.cat(
+                [batch_seq_len, b.seq_len[:samples_per_task]], dim=0
+            )
             batch_weight = torch.cat([batch_weight, w[:samples_per_task]], dim=0)
 
-        if prev_task_idx == len(episodic_memory)-1:
+        if prev_task_idx == len(episodic_memory) - 1:
             b.obs = batch_obs
             b.action = batch_act
             b.reward = batch_reward
@@ -351,14 +385,13 @@ def make_batch_AGEM(args, episodic_memory, stat, learnable_agent):
             b.bootstrap = batch_bootstrap
             b.seq_len = batch_seq_len
 
-            w = batch_weight   
+            w = batch_weight
 
-    
     ## TODO: find a better solution instead of this hack of slicing priority
     for prev_task_idx in range(len(episodic_memory)):
         _, p = learnable_agent.loss(prev_tasks_b[prev_task_idx], args.pred_weight, stat)
         p = rela.aggregate_priority(
-        p.cpu(), prev_tasks_b[prev_task_idx].seq_len.cpu(), args.eta
+            p.cpu(), prev_tasks_b[prev_task_idx].seq_len.cpu(), args.eta
         )
         episodic_memory[prev_task_idx].update_priority(p)
 
@@ -366,6 +399,7 @@ def make_batch_AGEM(args, episodic_memory, stat, learnable_agent):
         return b, w, episodic_memory
     else:
         return None, None, episodic_memory
+
 
 def get_grad_list(learnable_agent):
     ## reorganize the gradient of batch as a single vector
@@ -377,24 +411,26 @@ def get_grad_list(learnable_agent):
     grad = torch.cat(grad)
     return grad
 
+
 def grad_proj(grad_cur, grad_rep, learnable_agent):
     ## adding A-GEM projection inequality.
-    angle = (grad_cur*grad_rep).sum()
+    angle = (grad_cur * grad_rep).sum()
     if angle < 0:
         cnt_angle_less += 1
-    # -if violated, project the gradient of the current batch onto the gradient of the replayed batch ...
-        length_rep = (grad_rep*grad_rep).sum()
-        grad_proj = grad_cur-(angle/length_rep)*grad_rep
-    # -...and replace all the gradients within the model with this projected gradient
+        # -if violated, project the gradient of the current batch onto the gradient of the replayed batch ...
+        length_rep = (grad_rep * grad_rep).sum()
+        grad_proj = grad_cur - (angle / length_rep) * grad_rep
+        # -...and replace all the gradients within the model with this projected gradient
         index = 0
         for p in learnable_agent.online_net.parameters():
             if p.requires_grad:
                 if p.grad is not None:
                     n_param = p.numel()  # number of parameters in [p]
-                    p.grad.copy_(grad_proj[index:index+n_param].view_as(p))
+                    p.grad.copy_(grad_proj[index : index + n_param].view_as(p))
                     index += n_param
 
     return learnable_agent
+
 
 # def get_game_info(num_player, greedy_extra, feed_temperature, extra_args=None):
 #     params = {"players": str(num_player)}

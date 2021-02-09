@@ -1,4 +1,5 @@
 import set_path
+
 set_path.append_sys_path()
 
 import os
@@ -90,7 +91,7 @@ class ActGroup:
         self.flags = []
         self.model_runners = []
         self.is_rand = is_rand
-        
+
         for dev in self.devices:
             learnable_runner = rela.BatchRunner(
                 agent_list[0].clone(dev), dev, 100, ["act", "compute_priority"]
@@ -112,7 +113,7 @@ class ActGroup:
         self.num_runners = len(self.model_runners)
 
         self.actors = []
-## TODO: how to modify VDN to incorporate fixed and learnable actors... 
+        ## TODO: how to modify VDN to incorporate fixed and learnable actors...
         if method == "vdn":
             for i in range(num_thread):
                 actor = rela.R2D2Actor(

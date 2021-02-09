@@ -120,5 +120,7 @@ def evaluate_saved_model(
     sem = np.std(scores) / np.sqrt(len(scores))
     perfect_rate = perfect / (num_game * num_run)
     if verbose:
-        print("score: %f +/- %f" % (mean, sem), "; perfect: %.2f%%" % (100 * perfect_rate))
+        print(
+            "score: %f +/- %f" % (mean, sem), "; perfect: %.2f%%" % (100 * perfect_rate)
+        )
     return mean, sem, perfect_rate, scores
