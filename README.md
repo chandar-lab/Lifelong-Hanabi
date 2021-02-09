@@ -2,7 +2,7 @@
 
 ## Introduction
 
-This repo contains code and models for [Continuous coordination as A Realistic Scenario for Lifelong Learning]().
+This repo contains code and models for [Continuous Coordination As a Realistic Scenario for Lifelong Learning](), a multi-agent lifelong learning testbed that supports both zero-shot and few-shot settings. Our setup is based on [hanabi](https://github.com/deepmind/hanabi-learning-environment) — a partially-observable, fully cooperative multi-agent game. 
 
 
 <br/>
