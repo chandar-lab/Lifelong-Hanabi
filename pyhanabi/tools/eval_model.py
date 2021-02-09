@@ -91,7 +91,6 @@ if __name__ == "__main__":
     parser.add_argument("--num_player", default=None, type=int, required=True)
 
     args = parser.parse_args()
-    print("weights_1 dir is ", args.weight_1_dir)
 
     assert os.path.exists(args.weight_1_dir) 
     weight_1 = []
@@ -103,8 +102,6 @@ if __name__ == "__main__":
 
     for ag1 in weight_1:
         ag1_names.append(ag1.split("/")[-1].split(".")[0])
-
-    print("ag1 names is ", ag1_names)
 
     for ag1_idx, ag1 in enumerate(weight_1):
         for ag2_idx, ag2 in enumerate(weight_1):
