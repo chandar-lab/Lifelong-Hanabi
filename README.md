@@ -15,10 +15,7 @@ This repo contains code and models for [Continuous Coordination As a Realistic S
 
 The code is built on top of the [Other-Play & Simplified Action Decoder in Hanabi](https://github.com/facebookresearch/hanabi_SAD) repo.
 
-If you found this work useful, please consider citing our [paper](). 
-```
 
-```
 
 ## Requirements and Installation
 Detailed description of installation steps is given [here](https://docs.google.com/document/d/1mYGzWU_5ELupcNe2YsWrFunSBhTVXXy9Fx694qCL2pA/edit?usp=sharing). 
