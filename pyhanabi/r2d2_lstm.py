@@ -56,7 +56,7 @@ class R2D2Net(torch.jit.ScriptModule):
         a = self.fc_a(o)
         a = a.squeeze(0)
 
-        return a, {"h0": h, "c0": c}  # , t_pred
+        return a, {"h0": h, "c0": c} 
 
     @torch.jit.script_method
     def forward(
