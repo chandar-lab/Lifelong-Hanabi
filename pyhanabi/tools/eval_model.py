@@ -16,8 +16,9 @@ sys.path.append(lib_path)
 import numpy as np
 import pandas as pd
 import torch
-import r2d2_gru as r2d2_gru
-import r2d2_lstm as r2d2_lstm
+# import r2d2_gru as r2d2_gru
+# import r2d2_lstm as r2d2_lstm
+import r2d2
 import utils
 from eval import evaluate
 
@@ -52,38 +53,54 @@ def evaluate_legacy_model(
         with open(args.weight_1_dir + "/" + agent_name + ".txt", "r") as f:
             agent_args = {**json.load(f)}
 
-        if agent_args["rnn_type"] == "lstm":
-            agent = r2d2_lstm.R2D2Agent(
-                False,
-                3,
-                0.999,
-                0.9,
-                device,
-                input_dim,
-                agent_args["rnn_hid_dim"],
-                output_dim,
-                agent_args["num_fflayer"],
-                agent_args["num_rnn_layer"],
-                5,
-                False,
-                sad=sad,
-            ).to(device)
-        elif agent_args["rnn_type"] == "gru":
-            agent = r2d2_gru.R2D2Agent(
-                False,
-                3,
-                0.999,
-                0.9,
-                device,
-                input_dim,
-                agent_args["rnn_hid_dim"],
-                output_dim,
-                agent_args["num_fflayer"],
-                agent_args["num_rnn_layer"],
-                5,
-                False,
-                sad=sad,
-            ).to(device)
+        agent = r2d2.R2D2Agent(
+            False,
+            3,
+            0.999,
+            0.9,
+            device,
+            input_dim,
+            agent_args["rnn_hid_dim"],
+            output_dim,
+            agent_args["num_fflayer"],
+            agent_args["rnn_type"],
+            agent_args["num_rnn_layer"],
+            5,
+            False,
+            sad=sad,
+        ).to(device)
+        # if agent_args["rnn_type"] == "lstm":
+        #     agent = r2d2_lstm.R2D2Agent(
+        #         False,
+        #         3,
+        #         0.999,
+        #         0.9,
+        #         device,
+        #         input_dim,
+        #         agent_args["rnn_hid_dim"],
+        #         output_dim,
+        #         agent_args["num_fflayer"],
+        #         agent_args["num_rnn_layer"],
+        #         5,
+        #         False,
+        #         sad=sad,
+        #     ).to(device)
+        # elif agent_args["rnn_type"] == "gru":
+        #     agent = r2d2_gru.R2D2Agent(
+        #         False,
+        #         3,
+        #         0.999,
+        #         0.9,
+        #         device,
+        #         input_dim,
+        #         agent_args["rnn_hid_dim"],
+        #         output_dim,
+        #         agent_args["num_fflayer"],
+        #         agent_args["num_rnn_layer"],
+        #         5,
+        #         False,
+        #         sad=sad,
+        #     ).to(device)
 
         utils.load_weight(agent.online_net, weight_file, device)
         agents.append(agent)

@@ -16,6 +16,7 @@ import common_utils
 import rela
 import utils
 import ewc as ewc
+import r2d2
 
 
 def parse_args():
@@ -181,10 +182,10 @@ if __name__ == "__main__":
         num_fflayer = args.num_fflayer
         num_rnn_layer = args.num_rnn_layer
 
-    if rnn_type == "lstm":
-        import r2d2_lstm as r2d2_learnable
-    elif rnn_type == "gru":
-        import r2d2_gru as r2d2_learnable
+    # if rnn_type == "lstm":
+    #     import r2d2_lstm as r2d2_learnable
+    # elif rnn_type == "gru":
+    #     import r2d2_gru as r2d2_learnable
 
     learnable_sad = False
     if "sad" in args.load_learnable_model:
@@ -203,7 +204,7 @@ if __name__ == "__main__":
         args.shuffle_color,
     )
 
-    learnable_agent = r2d2_learnable.R2D2Agent(
+    learnable_agent = r2d2.R2D2Agent(
         (args.method == "vdn"),
         args.multi_step,
         args.gamma,
@@ -213,6 +214,7 @@ if __name__ == "__main__":
         rnn_hid_dim,
         learnable_games[0].num_action(),
         num_fflayer,
+        rnn_type,
         num_rnn_layer,
         args.hand_size,
         False,
@@ -251,10 +253,10 @@ if __name__ == "__main__":
         if "sad" in opp_model:
             opp_sad = True
 
-        if opp_model_args["rnn_type"] == "lstm":
-            import r2d2_lstm as r2d2_fixed
-        elif opp_model_args["rnn_type"] == "gru":
-            import r2d2_gru as r2d2_fixed
+        # if opp_model_args["rnn_type"] == "lstm":
+        #     import r2d2_lstm as r2d2_fixed
+        # elif opp_model_args["rnn_type"] == "gru":
+        #     import r2d2_gru as r2d2_fixed
 
         fixed_games = create_envs(
             args.num_thread * args.num_game_per_thread,
@@ -269,7 +271,7 @@ if __name__ == "__main__":
             args.shuffle_color,
         )
 
-        fixed_agent = r2d2_fixed.R2D2Agent(
+        fixed_agent = r2d2.R2D2Agent(
             (args.method == "vdn"),
             args.multi_step,
             args.gamma,
@@ -279,6 +281,7 @@ if __name__ == "__main__":
             opp_model_args["rnn_hid_dim"],
             fixed_games[0].num_action(),
             opp_model_args["num_fflayer"],
+            opp_model_args["rnn_type"],
             opp_model_args["num_rnn_layer"],
             args.hand_size,
             False,

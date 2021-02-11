@@ -8,6 +8,7 @@ import numpy as np
 import rela
 from create import *
 import common_utils
+import r2d2
 
 
 def parse_first_dict(lines):
@@ -89,19 +90,22 @@ def load_agent(weight_file, overwrite):
         "hid_dim": cfg["hid_dim"] if "hid_dim" in cfg else cfg["rnn_hid_dim"],
         "out_dim": game.num_action(),
         "num_fflayer": overwrite.get("num_fflayer", cfg["num_fflayer"]),
+        "rnn_type": overwrite.get("rnn_type", cfg["rnn_type"]),
         "num_rnn_layer": overwrite.get("num_rnn_layer", cfg["num_rnn_layer"]),
         "boltzmann_act": overwrite.get("boltzmann_act", cfg["boltzmann_act"]),
         "hand_size": overwrite.get("hand_size", cfg["hand_size"]),
         "uniform_priority": overwrite.get("uniform_priority", False),
     }
-    if cfg["rnn_type"] == "lstm":
-        import r2d2_lstm as r2d2_lstm
+    # if cfg["rnn_type"] == "lstm":
+    #     import r2d2_lstm as r2d2_lstm
+    #
+    #     agent = r2d2_lstm.R2D2Agent(**config).to(config["device"])
+    # elif cfg["rnn_type"] == "gru":
+    #     import r2d2_gru as r2d2_gru
+    #
+    #     agent = r2d2_gru.R2D2Agent(**config).to(config["device"])
+    agent = r2d2.R2D2Agent(**config).to(config["device"])
 
-        agent = r2d2_lstm.R2D2Agent(**config).to(config["device"])
-    elif cfg["rnn_type"] == "gru":
-        import r2d2_gru as r2d2_gru
-
-        agent = r2d2_gru.R2D2Agent(**config).to(config["device"])
 
     load_weight(agent.online_net, weight_file, config["device"])
     agent.sync_target_with_online()
