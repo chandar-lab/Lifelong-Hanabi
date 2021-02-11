@@ -432,46 +432,46 @@ def grad_proj(grad_cur, grad_rep, learnable_agent):
     return learnable_agent
 
 
-# def get_game_info(num_player, greedy_extra, feed_temperature, extra_args=None):
-#     params = {"players": str(num_player)}
-#     if extra_args is not None:
-#         params.update(extra_args)
-#     game = hanalearn.HanabiEnv(
-#         params,
-#         [0],
-#         [],
-#         -1,
-#         greedy_extra,
-#         False,
-#         False,
-#         False,
-#         feed_temperature,
-#         False,
-#         False,
-#     )
+def get_game_info(num_player, greedy_extra, feed_temperature, extra_args=None):
+    params = {"players": str(num_player)}
+    if extra_args is not None:
+        params.update(extra_args)
+    game = hanalearn.HanabiEnv(
+        params,
+        [0],
+        [],
+        -1,
+        greedy_extra,
+        False,
+        False,
+        False,
+        feed_temperature,
+        False,
+        False,
+    )
 
-#     if num_player < 5:
-#         hand_size = 5
-#     else:
-#         hand_size = 4
+    if num_player < 5:
+        hand_size = 5
+    else:
+        hand_size = 4
 
-#     info = {
-#         "input_dim": game.feature_size(),
-#         "num_action": game.num_action(),
-#         "hand_size": hand_size,
-#         "hand_feature_size": game.hand_feature_size(),
-#     }
-#     # print(info)
-#     return info
+    info = {
+        "input_dim": game.feature_size(),
+        "num_action": game.num_action(),
+        "hand_size": hand_size,
+        "hand_feature_size": game.hand_feature_size(),
+    }
+    # print(info)
+    return info
 
 
-# def compute_input_dim(num_player):
-#     hand = 126 * num_player
-#     board = 76
-#     discard = 50
-#     last_action = 51 + 2 * num_player
-#     card_knowledge = num_player * 5 * 35
-#     return hand + board + discard + last_action + card_knowledge
+def compute_input_dim(num_player):
+    hand = 126 * num_player
+    board = 76
+    discard = 50
+    last_action = 51 + 2 * num_player
+    card_knowledge = num_player * 5 * 35
+    return hand + board + discard + last_action + card_knowledge
 
 
 # returns the number of steps in all actors
@@ -485,16 +485,16 @@ def get_num_acts(actors):
     return total_acts
 
 
-# # num_acts is the total number of acts, so total number of acts is num_acts * num_game_per_actor
-# # num_buffer is the total number of elements inserted into the buffer
-# # time elapsed is in seconds
-# def get_frame_stat(num_game_per_thread, time_elapsed, num_acts, num_buffer, frame_stat):
-#     total_sample = (num_acts - frame_stat["num_acts"]) * num_game_per_thread
-#     act_rate = total_sample / time_elapsed
-#     buffer_rate = (num_buffer - frame_stat["num_buffer"]) / time_elapsed
-#     frame_stat["num_acts"] = num_acts
-#     frame_stat["num_buffer"] = num_buffer
-#     return total_sample, act_rate, buffer_rate
+# num_acts is the total number of acts, so total number of acts is num_acts * num_game_per_actor
+# num_buffer is the total number of elements inserted into the buffer
+# time elapsed is in seconds
+def get_frame_stat(num_game_per_thread, time_elapsed, num_acts, num_buffer, frame_stat):
+    total_sample = (num_acts - frame_stat["num_acts"]) * num_game_per_thread
+    act_rate = total_sample / time_elapsed
+    buffer_rate = (num_buffer - frame_stat["num_buffer"]) / time_elapsed
+    frame_stat["num_acts"] = num_acts
+    frame_stat["num_buffer"] = num_buffer
+    return total_sample, act_rate, buffer_rate
 
 
 def generate_explore_eps(base_eps, alpha, num_env):
