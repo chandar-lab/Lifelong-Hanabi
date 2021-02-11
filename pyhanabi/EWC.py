@@ -1,9 +1,10 @@
-# Implements EWC loss...
+# Implements EWC loss
+
 import torch
 import torch.nn as nn
 
 
-class EWC(nn.Module):
+class ewc(nn.Module):
     """
         Estimates the fisher matrix and calculates ewc loss based on that.
         Args:

@@ -232,7 +232,7 @@ if __name__ == "__main__":
     print(learnable_agent)
 
     if args.ll_algo == "EWC":
-        ewc_class = ewc.EWC(args)
+        ewc_class = ewc.ewc(args)
 
     eval_agent = learnable_agent.clone(args.train_device, {"vdn": False})
 
