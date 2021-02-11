@@ -11,9 +11,9 @@ class EWC(nn.Module):
             args.online: Bool "online" (=single quadratic term) or "offline" (=quadratic term per task) EWC
             args.batchsize: int
             args.pred_weight: 0.0 (Auxilary task loss coefficient)
-            args.train_device: cuda0
+            args.train_device: cuda:0
         Returns:
-            int: action with the maximum q-value for the current state
+            float: ewc loss 
         """
     
     def __init__(self, args):
