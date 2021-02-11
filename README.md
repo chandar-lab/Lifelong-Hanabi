@@ -66,6 +66,6 @@ python final_evaluation.py
 ```
 This step also needs a [wandb](https://wandb.ai/home) account to plot the results. 
 ## Plot results
-We used [wandb](https://wandb.ai/home) for plotting the results.
+We used [wandb](https://docs.wandb.ai/quickstart#1-install-library) for plotting the results.
 
 
