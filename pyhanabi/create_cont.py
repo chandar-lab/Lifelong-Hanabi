@@ -72,6 +72,25 @@ def create_threads(
 
 
 class ActGroup:
+    """
+        Creates actors given the agents. Starts to stores transitions in the replay_buffer by calling ActGroup.start()
+        Args:
+            method(str): iql or vdn
+            devices(str): cuda1
+            agent_list(list): list of a learner and its partners
+            num_thread(int): default=10
+            num_game_per_thread(int): default=80
+            multi_step(int): default=3
+            gamma(float): discount factor
+            eta(float): eta for aggregate priority
+            max_len(int): max seq len
+            num_player(int):  default=2
+            is_rand(bool): To randomize ordering of the learner and its partners or not
+            replay_buffer(object): a replay buffer onject
+        Returns:
+            None
+        """
+    
     def __init__(
         self,
         method,
@@ -113,7 +132,6 @@ class ActGroup:
         self.num_runners = len(self.model_runners)
 
         self.actors = []
-        ## TODO: how to modify VDN to incorporate fixed and learnable actors...
         if method == "vdn":
             for i in range(num_thread):
                 actor = rela.R2D2Actor(
