@@ -4,14 +4,26 @@ import torch.nn as nn
 
 
 class EWC(nn.Module):
+    """
+        Estimates the fisher matrix and calculates ewc loss based on that.
+        Args:
+            args.ewc_gamma (online EWC): decay-term for old tasks' contribution to quadratic term
+            args.online: Bool "online" (=single quadratic term) or "offline" (=quadratic term per task) EWC
+            args.batchsize: int
+            args.pred_weight: 0.0 (Auxilary task loss coefficient)
+            args.train_device: cuda0
+        Returns:
+            int: action with the maximum q-value for the current state
+        """
+    
     def __init__(self, args):
         super().__init__()
         self.ewc_gamma = (
             args.ewc_gamma
-        )  # -> hyperparam (online EWC): decay-term for old tasks' contribution to quadratic term
+        ) 
         self.online = (
             args.online
-        )  # -> "online" (=single quadratic term) or "offline" (=quadratic term per task) EWC
+        )
         self.batchsize = args.batchsize
         self.pred_weight = args.pred_weight
         self.train_device = args.train_device
@@ -44,12 +56,10 @@ class EWC(nn.Module):
         for n, p in learnable_agent.online_net.named_parameters():
             if p.requires_grad:
                 n = n.replace(".", "__")
-                # -mode (=MAP parameter estimate)
                 self.register_buffer(
                     "{}_EWC_prev_task{}".format(n, "" if self.online else task_idx + 1),
                     p.detach().clone(),
                 )
-                # -precision (approximated by diagonal Fisher Information matrix)
                 if self.online and task_idx > 0:
                     existing_values = getattr(self, "{}_EWC_estimated_fisher".format(n))
                     est_fisher_info[n] += self.ewc_gamma * existing_values
@@ -84,7 +94,7 @@ class EWC(nn.Module):
 
                         # Calculate EWC-loss
                         losses.append((fisher * (p - mean) ** 2).sum())
-                # Sum EWC-loss from all parameters (and from all tasks, if "offline EWC")
+            # Sum EWC-loss from all parameters (and from all tasks, if "offline EWC")
             return (1.0 / 2) * sum(losses)
         else:
             # EWC-loss is 0 if there are no stored mode and precision yet
