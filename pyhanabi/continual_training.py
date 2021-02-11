@@ -15,7 +15,7 @@ from create_cont import create_envs, create_threads, ActGroup
 import common_utils
 import rela
 import utils
-import EWC as ewc
+import ewc as ewc
 
 
 def parse_args():
@@ -232,7 +232,7 @@ if __name__ == "__main__":
     print(learnable_agent)
 
     if args.ll_algo == "EWC":
-        ewc_class = ewc.ewc(args)
+        ewc_class = ewc.EWC(args)
 
     eval_agent = learnable_agent.clone(args.train_device, {"vdn": False})
 
