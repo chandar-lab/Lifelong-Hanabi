@@ -8,7 +8,7 @@ INITIAL_LR=0.02
 BATCH_SIZE=32
 OPTIM_NAME="SGD"
 SEED=10
-python cont_ER.py \
+python continual_training.py \
        --save_dir <save-dir> \
        --load_model_dir ${LOAD_MODEL_DIR} \
        --method iql \
