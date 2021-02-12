@@ -14,9 +14,8 @@ from create import create_envs, create_threads, ActGroup
 from eval import evaluate
 import common_utils
 import rela
-# import r2d2_lstm as r2d2_lstm
-# import r2d2_gru as r2d2_gru
-import r2d2
+import r2d2_lstm as r2d2_lstm
+import r2d2_gru as r2d2_gru
 import utils
 
 
@@ -141,51 +140,36 @@ if __name__ == "__main__":
         args.shuffle_color,
     )
 
-    agent = r2d2.R2D2Agent(
-        (args.method == "vdn"),
-        args.multi_step,
-        args.gamma,
-        args.eta,
-        args.train_device,
-        games[0].feature_size(),
-        args.rnn_hid_dim,
-        games[0].num_action(),
-        args.num_fflayer,
-        args.rnn_type,
-        args.num_rnn_layer,
-        args.hand_size,
-        False,  # uniform priority
-    )
-    # if args.rnn_type == "lstm":
-    #     agent = r2d2_lstm.R2D2Agent(
-    #         (args.method == "vdn"),
-    #         args.multi_step,
-    #         args.gamma,
-    #         args.eta,
-    #         args.train_device,
-    #         games[0].feature_size(),
-    #         args.rnn_hid_dim,
-    #         games[0].num_action(),
-    #         args.num_fflayer,
-    #         args.num_rnn_layer,
-    #         args.hand_size,
-    #         False,  # uniform priority
-    #     )
-    # elif args.rnn_type == "gru":
-    #     agent = r2d2_gru.R2D2Agent(
-    #         (args.method == "vdn"),
-    #         args.multi_step,
-    #         args.gamma,
-    #         args.eta,
-    #         args.train_device,
-    #         games[0].feature_size(),
-    #         args.rnn_hid_dim,
-    #         games[0].num_action(),
-    #         args.num_fflayer,
-    #         args.num_rnn_layer,
-    #         args.hand_size,
-    #         False,  # uniform priority
-    #     )
+    if args.rnn_type == "lstm":
+        agent = r2d2_lstm.R2D2Agent(
+            (args.method == "vdn"),
+            args.multi_step,
+            args.gamma,
+            args.eta,
+            args.train_device,
+            games[0].feature_size(),
+            args.rnn_hid_dim,
+            games[0].num_action(),
+            args.num_fflayer,
+            args.num_rnn_layer,
+            args.hand_size,
+            False,  # uniform priority
+        )
+    elif args.rnn_type == "gru":
+        agent = r2d2_gru.R2D2Agent(
+            (args.method == "vdn"),
+            args.multi_step,
+            args.gamma,
+            args.eta,
+            args.train_device,
+            games[0].feature_size(),
+            args.rnn_hid_dim,
+            games[0].num_action(),
+            args.num_fflayer,
+            args.num_rnn_layer,
+            args.hand_size,
+            False,  # uniform priority
+        )
 
     agent.sync_target_with_online()
 

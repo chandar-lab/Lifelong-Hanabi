@@ -22,7 +22,6 @@ import numpy as np
 import torch
 import utils
 from eval import evaluate
-import r2d2
 
 
 def evaluate_legacy_model(
@@ -87,10 +86,10 @@ def evaluate_legacy_model(
             num_fflayer = learnable_agent_args["num_fflayer"]
             num_rnn_layer = learnable_agent_args["num_rnn_layer"]
 
-        # if rnn_type == "lstm":
-        #     import r2d2_lstm as r2d2
-        # elif rnn_type == "gru":
-        #     import r2d2_gru as r2d2
+        if rnn_type == "lstm":
+            import r2d2_lstm as r2d2
+        elif rnn_type == "gru":
+            import r2d2_gru as r2d2
 
         agent = r2d2.R2D2Agent(
             False,
@@ -102,7 +101,6 @@ def evaluate_legacy_model(
             rnn_hid_dim,
             output_dim,
             num_fflayer,
-            rnn_type,
             num_rnn_layer,
             5,
             False,
