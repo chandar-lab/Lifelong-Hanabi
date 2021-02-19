@@ -416,7 +416,6 @@ def grad_proj(grad_cur, grad_rep, learnable_agent):
     ## adding A-GEM projection inequality.
     angle = (grad_cur * grad_rep).sum()
     if angle < 0:
-        cnt_angle_less += 1
         # -if violated, project the gradient of the current batch onto the gradient of the replayed batch ...
         length_rep = (grad_rep * grad_rep).sum()
         grad_proj = grad_cur - (angle / length_rep) * grad_rep

@@ -427,7 +427,7 @@ if __name__ == "__main__":
                         loss_replay = (loss_replay * w).mean()
                         loss_replay.backward()
 
-                        grad_rep = get_grad_list(learnable_agent)
+                        grad_rep = utils.get_grad_list(learnable_agent)
                         ## reset gradients (with A-GEM the gradients of replayed batch should only be used as inequality constraints)
                         optim.zero_grad()
 
@@ -454,9 +454,9 @@ if __name__ == "__main__":
 
                 if args.ll_algo == "AGEM" and task_idx > 0:
                     ## reorganize the gradient of the current batch as a single vector
-                    grad_cur = get_grad_list(learnable_agent)
+                    grad_cur = utils.get_grad_list(learnable_agent)
                     ## project gradient and return new learnable agent
-                    learnable_agent = grad_proj(grad_cur, grad_rep, learnable_agent)
+                    learnable_agent = utils.grad_proj(grad_cur, grad_rep, learnable_agent)
 
                 torch.cuda.synchronize()
                 stopwatch.time("forward & backward")
