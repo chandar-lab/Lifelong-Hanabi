@@ -7,6 +7,7 @@ import argparse
 import pprint
 import json
 import gc
+import glob
 import numpy as np
 import torch
 from torch import nn
@@ -29,6 +30,7 @@ def parse_args():
     parser.add_argument("--num_eps", type=int, default=80)
 
     parser.add_argument("--load_learnable_model", type=str, default="")
+    parser.add_argument("--resume_cont_training", action="store_true", default=False)
     parser.add_argument("--load_fixed_models", type=str, nargs="+", default="")
 
     parser.add_argument("--seed", type=int, default=10001)
@@ -228,6 +230,15 @@ if __name__ == "__main__":
         )
         print("*****done*****")
 
+    if args.resume_cont_training:
+        print("***** resuming continual training ... ")
+        learnable_agent_ckpts = glob.glob(args.save_dir+"/*_zero_shot.pthw")
+        learnable_agent_ckpts.sort(key=os.path.getmtime)
+        print("restoring from ... ", learnable_agent_ckpts[-1])
+        utils.load_weight(learnable_agent.online_net, learnable_agent_ckpts[-1], args.train_device)
+        epoch_restore = int(learnable_agent_ckpts[-1].split("/")[-1].split(".")[0].split("_")[1][5:])
+        print("epoch restore is ... ", epoch_restore)
+
     learnable_agent = learnable_agent.to(args.train_device)
     print(learnable_agent)
 
@@ -293,9 +304,75 @@ if __name__ == "__main__":
         fixed_agent = fixed_agent.to(args.train_device)
         fixed_agents.append(fixed_agent)
 
-    total_epochs = 0
+    ### Populate episodic memory
+    if args.resume_cont_training:
+        task_idx_restore = epoch_restore // args.num_epoch
+        total_epochs = epoch_restore
+
+        learnable_agent_populate_em = learnable_agent.clone(args.train_device, {"vdn": False})
+        for emi in range(task_idx_restore):
+            model_to_load = args.save_dir+"/"+"model_epoch"+str((emi+1)*args.num_epoch)+"_zero_shot.pthw"
+            utils.load_weight(learnable_agent_populate_em.online_net, model_to_load, args.train_device)
+            
+            em_replay_buffer = rela.RNNPrioritizedReplay(
+            args.replay_buffer_size,
+            args.seed,
+            args.priority_exponent,
+            args.priority_weight,
+            args.prefetch,
+            )
+            
+            cont_sad=False
+            if "sad" in args.load_fixed_models[emi] or learnable_sad==True:
+                cont_sad = True
+
+            em_games = create_envs(
+                args.num_thread * args.num_game_per_thread,
+                args.seed,
+                args.num_player,
+                args.hand_size,
+                args.train_bomb,
+                explore_eps,
+                args.max_len,
+                cont_sad,
+                args.shuffle_obs,
+                args.shuffle_color,
+                )
+
+            em_act_group = ActGroup(
+                args.method,
+                args.act_device,
+                [learnable_agent_populate_em, fixed_agents[emi]],
+                args.num_thread,
+                args.num_game_per_thread,
+                args.multi_step,
+                args.gamma,
+                args.eta,
+                args.max_len,
+                args.num_player,
+                args.is_rand,
+                em_replay_buffer
+                )
+            em_context, em_threads = create_threads(
+            args.num_thread, args.num_game_per_thread, em_act_group.actors, em_games,
+            )
+            em_act_group.start()
+            em_context.start()
+
+            while em_replay_buffer.size() < args.replay_buffer_size:
+                print("warming up em replay buffer:"+str(emi), em_replay_buffer.size())
+                time.sleep(1)
+            em_context.pause()
+            episodic_memory.append(em_replay_buffer)
+    else:
+        task_idx_restore = 0 
+        total_epochs = 0
+
 
     for task_idx, fixed_agent in enumerate(fixed_agents):
+        if task_idx < task_idx_restore:
+            continue
+
         if args.decay_lr:
             lr = max(args.initial_lr * args.lr_gamma ** (task_idx), args.final_lr)
         else:
@@ -360,7 +437,13 @@ if __name__ == "__main__":
         )
         act_group.start()
         context.start()
-        while replay_buffer.size() < args.burn_in_frames:
+
+        if args.resume_cont_training and task_idx == task_idx_restore:
+            burn_in_frames = args.replay_buffer_size
+        else:
+            burn_in_frames = args.burn_in_frames
+
+        while replay_buffer.size() < burn_in_frames:
             print("warming up replay buffer:", replay_buffer.size())
             time.sleep(1)
 
@@ -372,7 +455,12 @@ if __name__ == "__main__":
         stopwatch = common_utils.Stopwatch()
 
         task_done = False
-        for epoch in range(args.num_epoch):
+        if args.resume_cont_training and task_idx == task_idx_restore:
+            initial_epoch = epoch_restore - (task_idx_restore*args.num_epoch)
+        else:
+            initial_epoch = 0
+
+        for epoch in range(initial_epoch, args.num_epoch):
             total_epochs += 1
             print("beginning of epoch: ", total_epochs)
             print(common_utils.get_mem_usage())

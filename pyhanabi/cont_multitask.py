@@ -7,6 +7,7 @@ import argparse
 import pprint
 import json
 import gc
+import glob
 import numpy as np
 import torch
 from torch import nn
@@ -28,6 +29,7 @@ def parse_args():
     parser.add_argument("--num_eps", type=int, default=80)
 
     parser.add_argument("--load_learnable_model", type=str, default="")
+    parser.add_argument("--resume_cont_training", action="store_true", default=False)
     parser.add_argument("--load_fixed_models", type=str, nargs="+", default="")
 
     parser.add_argument("--seed", type=int, default=10001)
@@ -217,6 +219,14 @@ if __name__ == "__main__":
             learnable_agent.online_net, args.load_learnable_model, args.train_device
         )
         print("*****done*****")
+    if args.resume_cont_training:
+        print("***** resuming continual training ... ")
+        learnable_agent_ckpts = glob.glob(args.save_dir+"/*_zero_shot.pthw")
+        learnable_agent_ckpts.sort(key=os.path.getmtime)
+        print("restoring from ... ", learnable_agent_ckpts[-1])
+        utils.load_weight(learnable_agent.online_net, learnable_agent_ckpts[-1], args.train_device)
+        epoch_restore = int(learnable_agent_ckpts[-1].split("/")[-1].split(".")[0].split("_")[1][5:])
+        print("epoch restore is ... ", epoch_restore)
 
     learnable_agent = learnable_agent.to(args.train_device)
     print(learnable_agent)
@@ -279,7 +289,6 @@ if __name__ == "__main__":
         fixed_agent = fixed_agent.to(args.train_device)
         fixed_agents.append(fixed_agent)
 
-    total_epochs = 0
 
     ## common RB
     replay_buffer = rela.RNNPrioritizedReplay(
@@ -294,8 +303,6 @@ if __name__ == "__main__":
     context_list = []
 
     for task_idx, fixed_agent in enumerate(fixed_agents):
-        print("task idx is ", task_idx)
-
         cont_sad = False
         if "sad" in args.load_fixed_models[task_idx] or learnable_sad == True:
             cont_sad = True
@@ -370,8 +377,15 @@ if __name__ == "__main__":
     stopwatch = common_utils.Stopwatch()
 
     mtl_done = False
+    
+    if args.resume_cont_training:
+        initial_epoch = epoch_restore // len(fixed_agents)
+        total_epochs = initial_epoch
+    else:
+        initial_epoch = 0
+        total_epochs = 0
 
-    for epoch in range(args.num_epoch):
+    for epoch in range(initial_epoch, args.num_epoch):
         total_epochs += 1
         print("beginning of epoch: ", total_epochs)
         print(common_utils.get_mem_usage())
@@ -391,8 +405,14 @@ if __name__ == "__main__":
 
             num_update = batch_idx + epoch * args.epoch_len
             for task_idx, fixed_agent in enumerate(fixed_agents):
-                if epoch == 0 and batch_idx == 0:
-                    tachometers[task_idx].start()
+                
+                if args.resume_cont_training:
+                    if epoch == initial_epoch and batch_idx == 0:
+                        tachometers[task_idx].start()
+                else:
+                    if epoch == 0 and batch_idx == 0:
+                        tachometers[task_idx].start()
+
                 context_list[task_idx].resume()
                 if num_update % args.num_update_between_sync == 0:
                     learnable_agent.sync_target_with_online()
