@@ -364,6 +364,13 @@ if __name__ == "__main__":
                 time.sleep(1)
             em_context.pause()
             episodic_memory.append(em_replay_buffer)
+
+            em_batch, em_weight = em_replay_buffer.sample(args.batchsize, args.train_device)
+
+            em_stat = common_utils.MultiCounter(args.save_dir)
+            em_stat.reset()
+            if args.ll_algo == "EWC":
+                ewc_class.estimate_fisher(learnable_agent_populate_em, em_batch, em_weight, em_stat, emi)
     else:
         task_idx_restore = 0 
         total_epochs = 0
