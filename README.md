@@ -36,7 +36,7 @@ mv rela/rela.cpython-37m-x86_64-linux-gnu.so ..
 mv hanabi-learning-environment/libpyhanabi.so ../hanabi-learning-environment/
 
 ```
-Once the building is done and the '.so' files are moved to their required places as mentioned above, every subsequent time you just need to run:
+Once the building is done and the `.so` files are moved to their required places as mentioned above, every subsequent time you just need to run:
 ```bash
 conda activate lifelong_hanabi
 export PYTHONPATH=/path/to/lifelong_hanabi:$PYTHONPATH
