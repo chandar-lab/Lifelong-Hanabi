@@ -94,6 +94,6 @@ python final_evaluation.py
 ```
 This step also needs a [wandb](https://wandb.ai/home) account to plot the results. 
 ## Plot results
-We used [wandb](https://docs.wandb.ai/quickstart#1-install-library) for plotting the results.
+All the plots and experiment details are available at [wandb](https://wandb.ai/akileshbadrinaaraayanan/ContPlay_Hanabi_complete/reports/Lifelong-Hanabi-Experiments--VmlldzozOTk2NjY).
 
 
