@@ -94,6 +94,6 @@ python final_evaluation.py
 ```
 This step also needs a [wandb](https://wandb.ai/home) account to plot the results. 
 ## Plot results
-All the plots and experiment details are available at [wandb](https://wandb.ai/akileshbadrinaaraayanan/ContPlay_Hanabi_complete/reports/Lifelong-Hanabi-Experiments--VmlldzozOTk2NjY).
+All the plots and experiment details are available at [wandb report](https://wandb.ai/akileshbadrinaaraayanan/ContPlay_Hanabi_complete/reports/Lifelong-Hanabi-Experiments--VmlldzozOTk2NjY).
 
 
