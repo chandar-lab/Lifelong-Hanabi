@@ -18,9 +18,33 @@ The code is built on top of the [Other-Play & Simplified Action Decoder in Hanab
 
 
 ## Requirements and Installation
-Detailed description of installation steps is given [here](https://docs.google.com/document/d/1mYGzWU_5ELupcNe2YsWrFunSBhTVXXy9Fx694qCL2pA/edit?usp=sharing). 
+The build process is tested with Python 3.7,  PyTorch 1.5.1, CUDA 10.1, cudnn 7.6, and nccl 2.4
 
+```
+# create new conda env
+conda create -n lifelong_hanabi python=3.7
+conda activate lifelong_hanabi
+pip install -r requirements.txt
+
+# build 
+mkdir build
+cd build
+cmake ..
+make
+mv hanalearn.cpython-37m-x86_64-linux-gnu.so ..
+mv rela/rela.cpython-37m-x86_64-linux-gnu.so ..
+mv hanabi-learning-environment/libpyhanabi.so ../hanabi-learning-environment/
+
+```
+Once the building is done and the '.so' files are moved to their required places as mentioned above, every subsequent time you just need to run:
+```bash
+conda activate lifelong_hanabi
+export PYTHONPATH=/path/to/lifelong_hanabi:$PYTHONPATH
+export OMP_NUM_THREADS=1
+```
 ## Run
+
+
 Lifelong Hanabi consists of 3 phases: 1- Pre-training, 2- Continual training, 3- Testing 
 
 ### 1- Pre-Trained Agents
