@@ -21,6 +21,10 @@ The code is built on top of the [Other-Play & Simplified Action Decoder in Hanab
 The build process is tested with Python 3.7,  PyTorch 1.5.1, CUDA 10.1, cudnn 7.6, and nccl 2.4
 
 ```
+clone the repo
+git clone --recursive git@github.com:chandar-lab/Lifelong-Hanabi.git
+cd Lifelong-Hanabi
+
 # create new conda env
 conda create -n lifelong_hanabi python=3.7
 conda activate lifelong_hanabi
@@ -36,7 +40,7 @@ mv rela/rela.cpython-37m-x86_64-linux-gnu.so ..
 mv hanabi-learning-environment/libpyhanabi.so ../hanabi-learning-environment/
 
 ```
-Once the building is done and the '.so' files are moved to their required places as mentioned above, every subsequent time you just need to run:
+Once the building is done and the `.so` files are moved to their required places as mentioned above, every subsequent time you just need to run:
 ```bash
 conda activate lifelong_hanabi
 export PYTHONPATH=/path/to/lifelong_hanabi:$PYTHONPATH
@@ -90,6 +94,6 @@ python final_evaluation.py
 ```
 This step also needs a [wandb](https://wandb.ai/home) account to plot the results. 
 ## Plot results
-We used [wandb](https://docs.wandb.ai/quickstart#1-install-library) for plotting the results.
+All the plots and experiment details are available at [wandb report](https://wandb.ai/akileshbadrinaaraayanan/ContPlay_Hanabi_complete/reports/Lifelong-Hanabi-Experiments--VmlldzozOTk2NjY).
 
 
