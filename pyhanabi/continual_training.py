@@ -370,7 +370,12 @@ if __name__ == "__main__":
             em_stat = common_utils.MultiCounter(args.save_dir)
             em_stat.reset()
             if args.ll_algo == "EWC":
-                ewc_class.estimate_fisher(learnable_agent_populate_em, em_batch, em_weight, em_stat, emi)
+                em_priority = ewc_class.estimate_fisher(learnable_agent_populate_em, em_batch, em_weight, em_stat, emi)
+
+                em_priority = rela.aggregate_priority(
+                    em_priority.cpu(), em_batch.seq_len.cpu(), args.eta
+                )
+                em_replay_buffer.update_priority(em_priority[: args.batchsize])
     else:
         task_idx_restore = 0 
         total_epochs = 0
@@ -537,7 +542,7 @@ if __name__ == "__main__":
                     if epoch == (args.num_epoch - 1) and batch_idx == (
                         args.epoch_len - 1
                     ):
-                        ewc_class.estimate_fisher(
+                        _ = ewc_class.estimate_fisher(
                             learnable_agent, batch, weight, stat, task_idx
                         )
 

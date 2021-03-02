@@ -38,7 +38,7 @@ class EWC(nn.Module):
         # Prepare <dict> to store estimated Fisher Information matrix
         est_fisher_info = {}
 
-        tmp_loss, _ = learnable_agent.loss(batch, self.pred_weight, stat)
+        tmp_loss, tmp_priority = learnable_agent.loss(batch, self.pred_weight, stat)
         tmp_loss = (tmp_loss * weight).mean()
         tmp_loss.backward()
 
@@ -70,6 +70,7 @@ class EWC(nn.Module):
                     ),
                     est_fisher_info[n],
                 )
+        return tmp_priority
 
     def compute_ewc_loss(self, learnable_agent, task_idx):
         if task_idx > 0:
