@@ -144,8 +144,7 @@ if __name__ == "__main__":
         os.makedirs(args.save_dir)
 
     args.args_dump_name = "cont_args.txt"
-
-    with open(args.save_dir + "/" + args.args_dump_name, "w") as f:
+    with open(f"{args.save_dir}/{args.args_dump_name}", "w") as f:
         json.dump(args.__dict__, f, indent=2)
 
     logger_path = os.path.join(args.save_dir, "train.log")
@@ -168,15 +167,20 @@ if __name__ == "__main__":
     print("avg explore eps:", np.mean(explore_eps))
 
     ## this is the learnable agent.
+    learnable_sad = False
+
     if args.load_learnable_model:
         learnable_agent_name = args.load_learnable_model.split("/")[-1].split(".")[0]
-        with open(args.load_model_dir + "/" + learnable_agent_name + ".txt") as f:
+        with open(f"{args.load_model_dir}/{learnable_agent_name}.txt") as f:
             learnable_agent_args = {**json.load(f)}
 
         rnn_type = learnable_agent_args["rnn_type"]
         rnn_hid_dim = learnable_agent_args["rnn_hid_dim"]
         num_fflayer = learnable_agent_args["num_fflayer"]
         num_rnn_layer = learnable_agent_args["num_rnn_layer"]
+
+        if "sad" in args.load_learnable_model:
+            learnable_sad = True
     else:
         rnn_type = args.rnn_type
         rnn_hid_dim = args.rnn_hid_dim
@@ -187,10 +191,6 @@ if __name__ == "__main__":
         import r2d2_lstm as r2d2_learnable
     elif rnn_type == "gru":
         import r2d2_gru as r2d2_learnable
-
-    learnable_sad = False
-    if "sad" in args.load_learnable_model:
-        learnable_sad = True
 
     learnable_games = create_envs(
         args.num_thread * args.num_game_per_thread,
@@ -232,7 +232,7 @@ if __name__ == "__main__":
 
     if args.resume_cont_training:
         print("***** resuming continual training ... ")
-        learnable_agent_ckpts = glob.glob(args.save_dir+"/*_zero_shot.pthw")
+        learnable_agent_ckpts = glob.glob(f"{args.save_dir}/*_zero_shot.pthw")
         learnable_agent_ckpts.sort(key=os.path.getmtime)
         print("restoring from ... ", learnable_agent_ckpts[-1])
         utils.load_weight(learnable_agent.online_net, learnable_agent_ckpts[-1], args.train_device)
@@ -254,8 +254,7 @@ if __name__ == "__main__":
 
     for opp_idx, opp_model in enumerate(args.load_fixed_models):
         opp_model_name = opp_model.split("/")[-1].split(".")[0]
-
-        with open(args.load_model_dir + "/" + opp_model_name + ".txt") as f:
+        with open(f"{args.load_model_dir}/{opp_model_name}.txt") as f:
             opp_model_args = {**json.load(f)}
 
         opp_sad = False
@@ -311,7 +310,7 @@ if __name__ == "__main__":
 
         learnable_agent_populate_em = learnable_agent.clone(args.train_device, {"vdn": False})
         for emi in range(task_idx_restore):
-            model_to_load = args.save_dir+"/"+"model_epoch"+str((emi+1)*args.num_epoch)+"_zero_shot.pthw"
+            model_to_load = f"{args.save_dir}/model_epoch{(emi+1)*args.num_epoch}_zero_shot.pthw"
             utils.load_weight(learnable_agent_populate_em.online_net, model_to_load, args.train_device)
             
             em_replay_buffer = rela.RNNPrioritizedReplay(
@@ -504,13 +503,10 @@ if __name__ == "__main__":
 
                 batch, weight = replay_buffer.sample(args.batchsize, args.train_device)
                 # Looping over the replay buffers of previous tasks.
-                ## TODO: Figure out what happens to batch.h0 -- why is it empty? should it be concat?
-                ## TODO: If possible, fix the actual C++ thing where batch size is interfaced so that .sample would return desired number of samples.
                 ## The below portion of code creates a batch consisting of equal sized samples (samples_per_task) from previous RBs and
                 ## concatenates to the batch of samples from the current task.
 
                 if args.ll_algo == "ER":
-                    ## here...
                     batch, weight, episodic_memory = utils.make_batch_ER(
                         args, episodic_memory, batch, weight, stat, learnable_agent
                     )
@@ -579,7 +575,6 @@ if __name__ == "__main__":
 
             count_factor = args.num_player if args.method == "vdn" else 1
             print("EPOCH: %d" % total_epochs)
-            ## this is not entirely true because we randomize the agents ...
             learnable_agent_actors = [x[0] for x in act_group.actors]
             tachometer.lap(
                 learnable_agent_actors,
@@ -798,4 +793,3 @@ if __name__ == "__main__":
                     "Episodic replay buffer size can't be larger than replay buffer size!!!"
                 )
         episodic_memory.append(replay_buffer)
-##      add context.pause() here at the end of the task...

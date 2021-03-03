@@ -135,7 +135,7 @@ if __name__ == "__main__":
 
     args.args_dump_name = "cont_args.txt"
 
-    with open(args.save_dir + "/" + args.args_dump_name, "w") as f:
+    with open(f"{args.save_dir}/{args.args_dump_name}", "w") as f:
         json.dump(args.__dict__, f, indent=2)
 
     logger_path = os.path.join(args.save_dir, "train.log")
@@ -157,16 +157,19 @@ if __name__ == "__main__":
     print("explore eps:", explore_eps)
     print("avg explore eps:", np.mean(explore_eps))
 
+    learnable_sad = False
     ## this is the learnable agent.
     if args.load_learnable_model:
         learnable_agent_name = args.load_learnable_model.split("/")[-1].split(".")[0]
-        with open(args.load_model_dir + "/" + learnable_agent_name + ".txt") as f:
+        with open(f"{args.load_model_dir}/{learnable_agent_name}.txt") as f:
             learnable_agent_args = {**json.load(f)}
 
         rnn_type = learnable_agent_args["rnn_type"]
         rnn_hid_dim = learnable_agent_args["rnn_hid_dim"]
         num_fflayer = learnable_agent_args["num_fflayer"]
         num_rnn_layer = learnable_agent_args["num_rnn_layer"]
+        if "sad" in args.load_learnable_model:
+            learnable_sad = True
     else:
         rnn_type = args.rnn_type
         rnn_hid_dim = args.rnn_hid_dim
@@ -177,10 +180,6 @@ if __name__ == "__main__":
         import r2d2_lstm as r2d2_learnable
     elif rnn_type == "gru":
         import r2d2_gru as r2d2_learnable
-
-    learnable_sad = False
-    if "sad" in args.load_learnable_model:
-        learnable_sad = True
 
     learnable_games = create_envs(
         args.num_thread * args.num_game_per_thread,
@@ -221,7 +220,7 @@ if __name__ == "__main__":
         print("*****done*****")
     if args.resume_cont_training:
         print("***** resuming continual training ... ")
-        learnable_agent_ckpts = glob.glob(args.save_dir+"/*_zero_shot.pthw")
+        learnable_agent_ckpts = glob.glob(f"{args.save_dir}/*_zero_shot.pthw")
         learnable_agent_ckpts.sort(key=os.path.getmtime)
         print("restoring from ... ", learnable_agent_ckpts[-1])
         utils.load_weight(learnable_agent.online_net, learnable_agent_ckpts[-1], args.train_device)
@@ -240,7 +239,7 @@ if __name__ == "__main__":
     for opp_idx, opp_model in enumerate(args.load_fixed_models):
         opp_model_name = opp_model.split("/")[-1].split(".")[0]
 
-        with open(args.load_model_dir + "/" + opp_model_name + ".txt") as f:
+        with open(f"{args.load_model_dir}/{opp_model_name}.txt") as f:
             opp_model_args = {**json.load(f)}
 
         opp_sad = False
@@ -452,7 +451,6 @@ if __name__ == "__main__":
                 stat["grad_norm"].feed(g_norm.detach().item())
                 context_list[task_idx].pause()
                 count_factor = args.num_player if args.method == "vdn" else 1
-                ## this is not entirely true because we randomize the agents ...
                 learnable_agent_actors = [x[0] for x in act_group_list[task_idx].actors]
 
                 if batch_idx == (args.epoch_len - 1):
