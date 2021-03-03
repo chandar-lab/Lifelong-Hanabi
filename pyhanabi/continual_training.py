@@ -12,7 +12,7 @@ import numpy as np
 import torch
 from torch import nn
 
-from create_cont import create_envs, create_threads, ActGroup
+from create import create_envs, create_threads, ContActGroup
 import common_utils
 import rela
 import utils
@@ -338,7 +338,7 @@ if __name__ == "__main__":
                 args.shuffle_color,
                 )
 
-            em_act_group = ActGroup(
+            em_act_group = ContActGroup(
                 args.method,
                 args.act_device,
                 [learnable_agent_populate_em, fixed_agents[emi]],
@@ -424,7 +424,7 @@ if __name__ == "__main__":
             args.shuffle_color,
         )
 
-        act_group = ActGroup(
+        act_group = ContActGroup(
             args.method,
             args.act_device,
             [learnable_agent, fixed_agent],
@@ -644,7 +644,7 @@ if __name__ == "__main__":
                             args.shuffle_color,
                         )
 
-                        eval_act_group = ActGroup(
+                        eval_act_group = ContActGroup(
                             args.method,
                             args.act_device,
                             [few_shot_learnable_agent, eval_fixed_agent],
