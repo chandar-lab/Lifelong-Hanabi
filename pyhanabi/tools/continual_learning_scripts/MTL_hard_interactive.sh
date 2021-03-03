@@ -4,12 +4,13 @@
 ## dropout_p should be 0 for no dropout. dropout_p is drop probability.
 EVAL_METHOD="few_shot"
 LOAD_MODEL_DIR=<path-to-pretrained-model-pool-dir>
+SAVE_DIR=<path-to-save-dir>
 INITIAL_LR=0.02
 BATCH_SIZE=128
 OPTIM_NAME="SGD"
 SEED=10
 python cont_multitask.py \
-       --save_dir <save-dir> \
+       --save_dir ${SAVE_DIR} \
        --load_model_dir ${LOAD_MODEL_DIR} \
        --method iql \
        --load_learnable_model ${LOAD_MODEL_DIR}/iql_2p_210.pthw \
