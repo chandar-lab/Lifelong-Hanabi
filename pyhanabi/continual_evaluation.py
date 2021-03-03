@@ -282,19 +282,11 @@ if __name__ == "__main__":
                     )
                     # wandb.log({"epoch_zs_forgetting": act_epoch_cnt, "forgetting_zs_"+str(fixed_agent_idx): forgetting, "total_act_steps":act_steps_lns[act_epoch_cnt]})
             avg_score = avg_score / (cur_task + 1)
+            avg_future_score = avg_future_score / (total_tasks - (cur_task + 1))
             wandb.log(
                 {
                     "epoch_zs_avg_score": act_epoch_cnt,
                     "avg_zs_score": avg_score,
-                    "total_act_steps": (
-                        total_prev_act_steps + act_steps[act_epoch_cnt - 1]
-                    ),
-                }
-            )
-            avg_future_score = avg_future_score / (total_tasks - (cur_task + 1))
-            wandb.log(
-                {
-                    "epoch_zs_avg_future_score": act_epoch_cnt,
                     "avg_future_zs_score": avg_future_score,
                     "total_act_steps": (
                         total_prev_act_steps + act_steps[act_epoch_cnt - 1]
@@ -373,19 +365,11 @@ if __name__ == "__main__":
 
         if all_done % (total_tasks + 1) == 0:
             avg_fs_score = avg_fs_score / (cur_task + 1)
-            wandb.log(
-                {
-                    "epoch_fs_avgscore": act_epoch_cnt,
-                    "avg_fs_score": avg_fs_score,
-                    "total_act_steps": (
-                        total_prev_act_steps + act_steps[act_epoch_cnt - 1]
-                    ),
-                }
-            )
             avg_fs_future_score = avg_fs_future_score / (total_tasks - (cur_task + 1))
             wandb.log(
                 {
-                    "epoch_fs_avg_future_score": act_epoch_cnt,
+                    "epoch_fs_avg_score": act_epoch_cnt,
+                    "avg_fs_score": avg_fs_score,
                     "avg_fs_future_score": avg_fs_future_score,
                     "total_act_steps": (
                         total_prev_act_steps + act_steps[act_epoch_cnt - 1]
