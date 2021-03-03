@@ -103,9 +103,9 @@ if __name__ == "__main__":
     if not os.path.exists(args.save_dir):
         os.makedirs(args.save_dir)
 
-    args.args_dump_name = args.method + "_2p_" + str(args.seed) + ".txt"
+    args.args_dump_name = f"{args.method}_2p_{args.seed}.txt"
 
-    with open(args.save_dir + "/" + args.args_dump_name, "w") as f:
+    with open(f"{args.save_dir}/{args.args_dump_name}", "w") as f:
         json.dump(args.__dict__, f, indent=2)
 
     logger_path = os.path.join(args.save_dir, "train.log")

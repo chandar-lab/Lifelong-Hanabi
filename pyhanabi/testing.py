@@ -24,123 +24,6 @@ import utils
 from eval import evaluate
 
 
-def evaluate_legacy_model(
-    weight_files,
-    num_game,
-    seed,
-    bomb,
-    learnable_agent_args,
-    cont_train_args,
-    num_run=1,
-    verbose=True,
-):
-
-    agents = []
-    num_player = len(weight_files)
-    assert num_player > 1, "1 weight file per player"
-
-    env_sad = False
-    for i, weight_file in enumerate(weight_files):
-        if verbose:
-            print(
-                "evaluating: %s\n\tfor %dx%d games" % (weight_file, num_run, num_game)
-            )
-        if "sad" in weight_file:
-            sad = True
-            env_sad = True
-        else:
-            sad = False
-
-        device = "cuda:0"
-
-        state_dict = torch.load(weight_file)
-        input_dim = state_dict["net.0.weight"].size()[1]
-        hid_dim = 512
-        output_dim = state_dict["fc_a.weight"].size()[0]
-
-        learnable_pretrain = False
-        no_CL = False
-        if i == 0:
-            if "load_learnable_model" in learnable_agent_args:
-                if learnable_agent_args["load_learnable_model"] != "":
-                    agent_args_file = (
-                        learnable_agent_args["load_learnable_model"][:-4] + "txt"
-                    )
-                    learnable_pretrain = True
-            else:
-                agent_args_file = cont_train_args
-                no_CL = True
-        else:
-            agent_args_file = weight_file[:-4] + "txt"
-
-        if learnable_pretrain == True or no_CL == True or i == 1:
-            with open(agent_args_file, "r") as f:
-                agent_args = {**json.load(f)}
-            rnn_type = agent_args["rnn_type"]
-            rnn_hid_dim = agent_args["rnn_hid_dim"]
-            num_fflayer = agent_args["num_fflayer"]
-            num_rnn_layer = agent_args["num_rnn_layer"]
-        elif learnable_pretrain == False and no_CL == False:
-            rnn_type = learnable_agent_args["rnn_type"]
-            rnn_hid_dim = learnable_agent_args["rnn_hid_dim"]
-            num_fflayer = learnable_agent_args["num_fflayer"]
-            num_rnn_layer = learnable_agent_args["num_rnn_layer"]
-
-        if rnn_type == "lstm":
-            import r2d2_lstm as r2d2
-        elif rnn_type == "gru":
-            import r2d2_gru as r2d2
-
-        agent = r2d2.R2D2Agent(
-            False,
-            3,
-            0.999,
-            0.9,
-            device,
-            input_dim,
-            rnn_hid_dim,
-            output_dim,
-            num_fflayer,
-            num_rnn_layer,
-            5,
-            False,
-            sad=sad,
-        ).to(device)
-
-        utils.load_weight(agent.online_net, weight_file, device)
-        agents.append(agent)
-
-    scores = []
-    perfect = 0
-    for i in range(num_run):
-        if args.is_rand:
-            flag = np.random.randint(0, num_player)
-            if flag == 0:
-                new_agents = [agents[0], agents[1]]
-            elif flag == 1:
-                new_agents = [agents[1], agents[0]]
-        else:
-            new_agents = [agents[0], agents[1]]
-
-        _, _, score, p = evaluate(
-            new_agents,
-            num_game,
-            num_game * i + seed,
-            bomb,
-            0,
-            env_sad,
-        )
-        scores.extend(score)
-        perfect += p
-
-    mean = np.mean(scores)
-    sem = np.std(scores) / np.sqrt(len(scores))
-    perfect_rate = perfect / (num_game * num_run)
-    if verbose:
-        print("score: %f +/- %f" % (mean, sem), "; perfect: ", perfect_rate)
-    return mean, sem, perfect_rate
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--weight_1_dir", default=None, type=str, required=True)
@@ -149,17 +32,22 @@ if __name__ == "__main__":
     parser.add_argument("--num_player", default=None, type=int, required=True)
     args = parser.parse_args()
 
-    cont_train_args_txt = glob.glob(args.weight_1_dir + "/*.txt")
+    ## Note: This assumes that we have access to configuration file 
+    ## during continual training in the models directory specifying architecture details
+    ## like type of RNN, num of RNN layers etc. 
+    ## else to evaluate models otherwise created, please specify these in  
+    cont_train_args_txt = glob.glob(f"{args.weight_1_dir}/*.txt")
     with open(cont_train_args_txt[0], "r") as f:
-        learnable_agent_args = {**json.load(f)}
+        agent_args = {**json.load(f)}
 
-    exp_name = "final_eval_" + learnable_agent_args["save_dir"].split("/")[-1]
+
+    exp_name = f"test_"{agent_args["save_dir"].split("/")[-1]}
     wandb.init(project="Lifelong_Hanabi_project", name=exp_name)
-    wandb.config.update(learnable_agent_args)
+    wandb.config.update(agent_args)
 
     assert os.path.exists(args.weight_1_dir)
     weight_1 = []
-    weight_1 = glob.glob(args.weight_1_dir + "/*.pthw")
+    weight_1 = glob.glob(f"{args.weight_1_dir}/*.pthw")
     weight_1.sort(key=os.path.getmtime)
 
     ## check if everything in weights_2 exist
@@ -174,13 +62,13 @@ if __name__ == "__main__":
         if ag1_name == "shot.pthw":
             for fixed_agent_idx in range(len(args.weight_2)):
                 weight_files = [ag1, args.weight_2[fixed_agent_idx]]
-                mean_score, sem, perfect_rate = evaluate_legacy_model(
+                mean_score, sem, perfect_rate = utils.evaluate_legacy_model(
                     weight_files,
                     1000,
                     1,
                     0,
-                    learnable_agent_args,
-                    cont_train_args_txt[0],
+                    agent_args,
+                    args,
                     num_run=5,
                 )
                 wandb.log(
@@ -194,16 +82,16 @@ if __name__ == "__main__":
         else:
             ## for different few shot evaluations ...
             for i in range(len(args.weight_2)):
-                if ag1_name == str(i) + ".pthw":
+                if ag1_name == f"{i}.pthw":
                     weight_files = [ag1, args.weight_2[i]]
 
-            mean_score, sem, perfect_rate = evaluate_legacy_model(
+            mean_score, sem, perfect_rate = utils.evaluate_legacy_model(
                 weight_files,
                 1000,
                 1,
                 0,
-                learnable_agent_args,
-                cont_train_args_txt[0],
+                agent_args,
+                args,
                 num_run=5,
             )
             wandb.log(
