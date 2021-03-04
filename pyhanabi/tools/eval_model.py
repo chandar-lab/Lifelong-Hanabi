@@ -26,6 +26,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--weight_1_dir", default=None, type=str, required=True)
     parser.add_argument("--num_player", default=None, type=int, required=True)
+    parser.add_argument("--is_rand", action="store_true", default=True)
 
     args = parser.parse_args()
 
@@ -52,11 +53,11 @@ if __name__ == "__main__":
             )
             scores_arr[ag1_idx, ag2_idx] = mean
             sem_arr[ag1_idx, ag2_idx] = sem
-            np.save("scores_data_100", scores_arr)
-            np.save("sem_data_100", sem_arr)
+            np.save("scores_data", scores_arr)
+            np.save("sem_data", sem_arr)
 
     scores_df = pd.DataFrame(data=scores_arr, index=ag1_names, columns=ag1_names)
     sem_df = pd.DataFrame(data=sem_arr, index=ag1_names, columns=ag1_names)
 
-    scores_df.to_csv("scores_data_100.csv")
-    sem_df.to_csv("sem_data_100.csv")
+    scores_df.to_csv("scores_data.csv")
+    sem_df.to_csv("sem_data.csv")
