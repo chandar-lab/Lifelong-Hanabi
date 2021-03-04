@@ -9,7 +9,6 @@ import rela
 import random
 from create import *
 import common_utils
-from eval import evaluate
 
 def parse_first_dict(lines):
     config_lines = []
@@ -430,112 +429,6 @@ def grad_proj(grad_cur, grad_rep, learnable_agent):
                     index += n_param
 
     return learnable_agent
-
-def evaluate_legacy_model(
-    weight_files,
-    num_game,
-    seed,
-    bomb,
-    agent_args,
-    args,
-    num_run=1,
-    gen_cross_play=False,
-    verbose=True,
-):
-    agents = []
-    num_player = len(weight_files)
-    assert num_player > 1, "1 weight file per player"
-
-    env_sad = False
-    for i, weight_file in enumerate(weight_files):
-        if verbose:
-            print(
-                "evaluating: %s\n\tfor %dx%d games" % (weight_file, num_run, num_game)
-            )
-        if "sad" in weight_file:
-            sad = True
-            env_sad = True
-        else:
-            sad = False
-
-        device = "cuda:0"
-
-        state_dict = torch.load(weight_file)
-        input_dim = state_dict["net.0.weight"].size()[1]
-        output_dim = state_dict["fc_a.weight"].size()[0]
-
-        if gen_cross_play:
-            agent_name = weight_file.split("/")[-1].split(".")[0]
-
-            with open(f"{args.weight_1_dir}/{agent_name}.txt", "r") as f:
-                agent_args = {**json.load(f)}
-        else:
-            learnable_pretrain = True
-            learnable_agent_name = agent_args["load_learnable_model"]
-
-            if i == 0 and learnable_agent_name != "":
-                agent_args_file = f"{learnable_agent_name[:-4]}txt"
-            elif i == 0:
-                learnable_pretrain = False
-            else:
-                agent_args_file = f"{weight_file[:-4]}txt"
-
-            if learnable_pretrain == True:
-                with open(agent_args_file, "r") as f:
-                    agent_args = {**json.load(f)}
-
-        rnn_type = agent_args["rnn_type"]
-        rnn_hid_dim = agent_args["rnn_hid_dim"]
-        num_fflayer = agent_args["num_fflayer"]
-        num_rnn_layer = agent_args["num_rnn_layer"]
-
-        if rnn_type == "lstm":
-            import r2d2_lstm as r2d2
-        elif rnn_type == "gru":
-            import r2d2_gru as r2d2
-
-        agent = r2d2.R2D2Agent(
-            False,
-            3,
-            0.999,
-            0.9,
-            device,
-            input_dim,
-            rnn_hid_dim,
-            output_dim,
-            num_fflayer,
-            num_rnn_layer,
-            5,
-            False,
-            sad=sad,
-        ).to(device)
-
-        load_weight(agent.online_net, weight_file, device)
-        agents.append(agent)
-
-    scores = []
-    perfect = 0
-    for i in range(num_run):
-        if args.is_rand:
-            random.shuffle(agents)
-
-        _, _, score, p = evaluate(
-            agents,
-            num_game,
-            num_game * i + seed,
-            bomb,
-            0,
-            env_sad,
-        )
-        scores.extend(score)
-        perfect += p
-
-    mean = np.mean(scores)
-    sem = np.std(scores) / np.sqrt(len(scores))
-    perfect_rate = perfect / (num_game * num_run)
-    if verbose:
-        print("score: %f +/- %f" % (mean, sem), "; perfect: ", perfect_rate)
-    return mean, sem, perfect_rate
 
 def get_game_info(num_player, greedy_extra, feed_temperature, extra_args=None):
     params = {"players": str(num_player)}

@@ -21,7 +21,7 @@ sys.path.append(lib_path)
 import numpy as np
 import torch
 import utils
-from eval import evaluate
+from eval import evaluate_legacy_model
 
 
 if __name__ == "__main__":
@@ -110,7 +110,7 @@ if __name__ == "__main__":
 
             for fixed_agent_idx in range(len(args.weight_2)):
                 weight_files = [ag1, args.weight_2[fixed_agent_idx]]
-                mean_score, sem, perfect_rate = utils.evaluate_legacy_model(
+                mean_score, sem, perfect_rate = evaluate_legacy_model(
                     weight_files, 1000, 1, 0, agent_args, args, num_run=5
                 )
 
@@ -190,7 +190,7 @@ if __name__ == "__main__":
 
             cur_ag_id = ag1_name.split(".")[0]
 
-            mean_score, sem, perfect_rate = utils.evaluate_legacy_model(
+            mean_score, sem, perfect_rate = evaluate_legacy_model(
                 weight_files, 1000, 1, 0, agent_args, args, num_run=5
             )
             if mean_score > prev_max_fs[int(cur_ag_id)]:

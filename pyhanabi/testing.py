@@ -21,7 +21,7 @@ sys.path.append(lib_path)
 import numpy as np
 import torch
 import utils
-from eval import evaluate
+from eval import evaluate_legacy_model
 
 
 if __name__ == "__main__":
@@ -62,7 +62,7 @@ if __name__ == "__main__":
         if ag1_name == "shot.pthw":
             for fixed_agent_idx in range(len(args.weight_2)):
                 weight_files = [ag1, args.weight_2[fixed_agent_idx]]
-                mean_score, sem, perfect_rate = utils.evaluate_legacy_model(
+                mean_score, sem, perfect_rate = evaluate_legacy_model(
                     weight_files,
                     1000,
                     1,
@@ -85,7 +85,7 @@ if __name__ == "__main__":
                 if ag1_name == f"{i}.pthw":
                     weight_files = [ag1, args.weight_2[i]]
 
-            mean_score, sem, perfect_rate = utils.evaluate_legacy_model(
+            mean_score, sem, perfect_rate = evaluate_legacy_model(
                 weight_files,
                 1000,
                 1,

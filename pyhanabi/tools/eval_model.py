@@ -19,7 +19,7 @@ import torch
 import r2d2_gru as r2d2_gru
 import r2d2_lstm as r2d2_lstm
 import utils
-from eval import evaluate
+from eval import evaluate_legacy_model
 
 
 if __name__ == "__main__":
@@ -47,7 +47,7 @@ if __name__ == "__main__":
             weight_files = [ag1, ag2]
             agent_args={}
             # # fast evaluation for 5k games
-            mean, sem, _ = utils.evaluate_legacy_model(
+            mean, sem, _ = evaluate_legacy_model(
                 weight_files, 1000, 1, 0, agent_args, args, num_run=5, gen_cross_play=True
             )
             scores_arr[ag1_idx, ag2_idx] = mean
