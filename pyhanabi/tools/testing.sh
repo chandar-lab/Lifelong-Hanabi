@@ -1,5 +1,4 @@
 #!/bin/bash
-# the last agent in --weight_2 is the pre-trained agent itself that was used for continual training
 LOAD_MODEL_DIR=<path-to-pretrained-model-pool-dir>
 python testing.py \
        --weight_1_dir <path-to-ckpts-saved-during-continual-training> \
