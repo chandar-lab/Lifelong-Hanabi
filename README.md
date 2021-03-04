@@ -62,6 +62,22 @@ You can find a detailed description of each agent's configs and architectures he
 `misc/Pre-trained agents pool for Continual Hanabi.xlsx`
 
 To run any `.sh` file, update `<path-to-pretrained-model-pool-dir>` and `<save-dir>`, accordingly.
+Important flags are:
+|Flags | Description|
+|:-------------|:-------------|
+| `--sad`                      |enables Simplified Action Decoder|
+| `--pred_weight`            |weight for auxiliary task (typically 0.25)|
+| `--shuffle_color`          |enable other-play|
+| `--seed`          |seed|
+
+For details of other hyperparameters refer code and/or paper. 
+
+#### Pre-train a new agent through self-play 
+A sample script is provided in `pyhanabi/tools/pretrain.sh` that can be run:
+```bash
+cd pyhanabi
+sh tools/pretrain.sh
+```
 
 #### Reproduce the Cross-Play matrix:
 To evaluate all the agents with each other, simply run:
