@@ -20,7 +20,7 @@ The code is built on top of the [Other-Play & Simplified Action Decoder in Hanab
 ## Requirements and Installation
 The build process is tested with Python 3.7,  PyTorch 1.5.1, CUDA 10.1, cudnn 7.6, and nccl 2.4
 
-```
+```bash
 # clone the repo
 git clone --recursive git@github.com:chandar-lab/Lifelong-Hanabi.git
 cd Lifelong-Hanabi
