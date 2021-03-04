@@ -72,14 +72,14 @@ Important flags are:
 
 For details of other hyperparameters refer code and/or paper. 
 
-#### Pre-train a new agent through self-play 
+#### * Pre-train a new agent through self-play 
 A sample script is provided in `pyhanabi/tools/pretrain.sh` that can be run:
 ```bash
 cd pyhanabi
 sh tools/pretrain.sh
 ```
 
-#### Reproduce the Cross-Play matrix:
+#### * Reproduce the Cross-Play matrix:
 To evaluate all the agents with each other, simply run:
 ```bash
 cd pyhanabi
