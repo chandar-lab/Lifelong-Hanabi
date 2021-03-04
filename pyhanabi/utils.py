@@ -9,6 +9,7 @@ import rela
 from create import *
 import common_utils
 
+
 def parse_first_dict(lines):
     config_lines = []
     open_count = 0
@@ -428,6 +429,7 @@ def grad_proj(grad_cur, grad_rep, learnable_agent):
                     index += n_param
 
     return learnable_agent
+
 
 def get_game_info(num_player, greedy_extra, feed_temperature, extra_args=None):
     params = {"players": str(num_player)}

@@ -235,8 +235,12 @@ if __name__ == "__main__":
         learnable_agent_ckpts = glob.glob(f"{args.save_dir}/*_zero_shot.pthw")
         learnable_agent_ckpts.sort(key=os.path.getmtime)
         print("restoring from ... ", learnable_agent_ckpts[-1])
-        utils.load_weight(learnable_agent.online_net, learnable_agent_ckpts[-1], args.train_device)
-        epoch_restore = int(learnable_agent_ckpts[-1].split("/")[-1].split(".")[0].split("_")[1][5:])
+        utils.load_weight(
+            learnable_agent.online_net, learnable_agent_ckpts[-1], args.train_device
+        )
+        epoch_restore = int(
+            learnable_agent_ckpts[-1].split("/")[-1].split(".")[0].split("_")[1][5:]
+        )
         print("epoch restore is ... ", epoch_restore)
 
     learnable_agent = learnable_agent.to(args.train_device)
@@ -308,21 +312,27 @@ if __name__ == "__main__":
         task_idx_restore = epoch_restore // args.num_epoch
         total_epochs = epoch_restore
 
-        learnable_agent_populate_em = learnable_agent.clone(args.train_device, {"vdn": False})
+        learnable_agent_populate_em = learnable_agent.clone(
+            args.train_device, {"vdn": False}
+        )
         for emi in range(task_idx_restore):
-            model_to_load = f"{args.save_dir}/model_epoch{(emi+1)*args.num_epoch}_zero_shot.pthw"
-            utils.load_weight(learnable_agent_populate_em.online_net, model_to_load, args.train_device)
-            
-            em_replay_buffer = rela.RNNPrioritizedReplay(
-            args.replay_buffer_size,
-            args.seed,
-            args.priority_exponent,
-            args.priority_weight,
-            args.prefetch,
+            model_to_load = (
+                f"{args.save_dir}/model_epoch{(emi+1)*args.num_epoch}_zero_shot.pthw"
             )
-            
-            cont_sad=False
-            if "sad" in args.load_fixed_models[emi] or learnable_sad==True:
+            utils.load_weight(
+                learnable_agent_populate_em.online_net, model_to_load, args.train_device
+            )
+
+            em_replay_buffer = rela.RNNPrioritizedReplay(
+                args.replay_buffer_size,
+                args.seed,
+                args.priority_exponent,
+                args.priority_weight,
+                args.prefetch,
+            )
+
+            cont_sad = False
+            if "sad" in args.load_fixed_models[emi] or learnable_sad == True:
                 cont_sad = True
 
             em_games = create_envs(
@@ -336,7 +346,7 @@ if __name__ == "__main__":
                 cont_sad,
                 args.shuffle_obs,
                 args.shuffle_color,
-                )
+            )
 
             em_act_group = ContActGroup(
                 args.method,
@@ -350,35 +360,43 @@ if __name__ == "__main__":
                 args.max_len,
                 args.num_player,
                 args.is_rand,
-                em_replay_buffer
-                )
+                em_replay_buffer,
+            )
             em_context, em_threads = create_threads(
-            args.num_thread, args.num_game_per_thread, em_act_group.actors, em_games,
+                args.num_thread,
+                args.num_game_per_thread,
+                em_act_group.actors,
+                em_games,
             )
             em_act_group.start()
             em_context.start()
 
             while em_replay_buffer.size() < args.replay_buffer_size:
-                print("warming up em replay buffer:"+str(emi), em_replay_buffer.size())
+                print(
+                    "warming up em replay buffer:" + str(emi), em_replay_buffer.size()
+                )
                 time.sleep(1)
             em_context.pause()
             episodic_memory.append(em_replay_buffer)
 
-            em_batch, em_weight = em_replay_buffer.sample(args.batchsize, args.train_device)
+            em_batch, em_weight = em_replay_buffer.sample(
+                args.batchsize, args.train_device
+            )
 
             em_stat = common_utils.MultiCounter(args.save_dir)
             em_stat.reset()
             if args.ll_algo == "EWC":
-                em_priority = ewc_class.estimate_fisher(learnable_agent_populate_em, em_batch, em_weight, em_stat, emi)
+                em_priority = ewc_class.estimate_fisher(
+                    learnable_agent_populate_em, em_batch, em_weight, em_stat, emi
+                )
 
                 em_priority = rela.aggregate_priority(
                     em_priority.cpu(), em_batch.seq_len.cpu(), args.eta
                 )
                 em_replay_buffer.update_priority(em_priority[: args.batchsize])
     else:
-        task_idx_restore = 0 
+        task_idx_restore = 0
         total_epochs = 0
-
 
     for task_idx, fixed_agent in enumerate(fixed_agents):
         if task_idx < task_idx_restore:
@@ -467,7 +485,7 @@ if __name__ == "__main__":
 
         task_done = False
         if args.resume_cont_training and task_idx == task_idx_restore:
-            initial_epoch = epoch_restore - (task_idx_restore*args.num_epoch)
+            initial_epoch = epoch_restore - (task_idx_restore * args.num_epoch)
         else:
             initial_epoch = 0
 
@@ -552,7 +570,9 @@ if __name__ == "__main__":
                     ## reorganize the gradient of the current batch as a single vector
                     grad_cur = utils.get_grad_list(learnable_agent)
                     ## project gradient and return new learnable agent
-                    learnable_agent = utils.grad_proj(grad_cur, grad_rep, learnable_agent)
+                    learnable_agent = utils.grad_proj(
+                        grad_cur, grad_rep, learnable_agent
+                    )
 
                 torch.cuda.synchronize()
                 stopwatch.time("forward & backward")

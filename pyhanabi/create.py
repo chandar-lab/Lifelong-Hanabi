@@ -73,22 +73,23 @@ def create_threads(
 
 class ActGroup:
     """
-        Creates actors given the agents. Starts to stores transitions in the replay_buffer by calling ActGroup.start()
-        Args:
-            method(str): iql or vdn
-            devices(str): cuda1
-            agent(object): an R2d2 agent object
-            num_thread(int): default=10
-            num_game_per_thread(int): default=80
-            multi_step(int): default=3
-            gamma(float): discount factor
-            eta(float): eta for aggregate priority
-            max_len(int): max seq len
-            num_player(int):  default=2
-            replay_buffer(object): a replay buffer onject
-        Returns:
-            None
-        """
+    Creates actors given the agents. Starts to stores transitions in the replay_buffer by calling ActGroup.start()
+    Args:
+        method(str): iql or vdn
+        devices(str): cuda1
+        agent(object): an R2d2 agent object
+        num_thread(int): default=10
+        num_game_per_thread(int): default=80
+        multi_step(int): default=3
+        gamma(float): discount factor
+        eta(float): eta for aggregate priority
+        max_len(int): max seq len
+        num_player(int):  default=2
+        replay_buffer(object): a replay buffer onject
+    Returns:
+        None
+    """
+
     def __init__(
         self,
         method,
@@ -156,26 +157,27 @@ class ActGroup:
         for runner in self.model_runners:
             runner.update_model(agent)
 
+
 class ContActGroup:
     """
-        Creates actors given the agents. Starts to stores transitions in the replay_buffer by calling ContActGroup.start()
-        Args:
-            method(str): iql or vdn
-            devices(str): cuda1
-            agent_list(list): list of a learner and its partners
-            num_thread(int): default=10
-            num_game_per_thread(int): default=80
-            multi_step(int): default=3
-            gamma(float): discount factor
-            eta(float): eta for aggregate priority
-            max_len(int): max seq len
-            num_player(int):  default=2
-            is_rand(bool): To randomize ordering of the learner and its partners or not
-            replay_buffer(object): a replay buffer onject
-        Returns:
-            None
-        """
-    
+    Creates actors given the agents. Starts to stores transitions in the replay_buffer by calling ContActGroup.start()
+    Args:
+        method(str): iql or vdn
+        devices(str): cuda1
+        agent_list(list): list of a learner and its partners
+        num_thread(int): default=10
+        num_game_per_thread(int): default=80
+        multi_step(int): default=3
+        gamma(float): discount factor
+        eta(float): eta for aggregate priority
+        max_len(int): max seq len
+        num_player(int):  default=2
+        is_rand(bool): To randomize ordering of the learner and its partners or not
+        replay_buffer(object): a replay buffer onject
+    Returns:
+        None
+    """
+
     def __init__(
         self,
         method,

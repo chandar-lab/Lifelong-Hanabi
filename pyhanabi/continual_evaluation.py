@@ -65,7 +65,9 @@ if __name__ == "__main__":
     ## move learnable model to test_dir
     if agent_args["load_learnable_model"] != "":
         initial_learnable_model = agent_args["load_learnable_model"]
-        move_model_0 = f"cp {initial_learnable_model} {test_dir}/model_epoch0_zero_shot.pthw"
+        move_model_0 = (
+            f"cp {initial_learnable_model} {test_dir}/model_epoch0_zero_shot.pthw"
+        )
         os.system(move_model_0)
 
     exp_name = agent_args["save_dir"].split("/")[-1]

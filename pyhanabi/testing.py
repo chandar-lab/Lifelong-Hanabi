@@ -32,14 +32,14 @@ if __name__ == "__main__":
     parser.add_argument("--num_player", default=None, type=int, required=True)
     args = parser.parse_args()
 
-    ## Note: This assumes that we have access to configuration file 
+    ## Note: This assumes that we have access to configuration file
     ## during continual training in the models directory specifying architecture details
-    ## like type of RNN, num of RNN layers etc. 
-    ## else to evaluate models otherwise created, please specify these in  
+    ## like type of RNN, num of RNN layers etc.
+    ## else to evaluate models otherwise created, please specify these in
     cont_train_args_txt = glob.glob(f"{args.weight_1_dir}/*.txt")
     with open(cont_train_args_txt[0], "r") as f:
         agent_args = {**json.load(f)}
-    save_dir=agent_args["save_dir"].split("/")[-1]
+    save_dir = agent_args["save_dir"].split("/")[-1]
     exp_name = f"test_{save_dir}"
     wandb.init(project="Lifelong_Hanabi_project", name=exp_name)
     wandb.config.update(agent_args)

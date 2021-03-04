@@ -6,25 +6,21 @@ import torch.nn as nn
 
 class EWC(nn.Module):
     """
-        Estimates the fisher matrix and calculates ewc loss based on that.
-        Args:
-            args.ewc_gamma (online EWC): decay-term for old tasks' contribution to quadratic term
-            args.online: Bool "online" (=single quadratic term) or "offline" (=quadratic term per task) EWC
-            args.batchsize: int
-            args.pred_weight: 0.0 (Auxilary task loss coefficient)
-            args.train_device: cuda:0
-        Returns:
-            float: ewc loss 
-        """
-    
+    Estimates the fisher matrix and calculates ewc loss based on that.
+    Args:
+        args.ewc_gamma (online EWC): decay-term for old tasks' contribution to quadratic term
+        args.online: Bool "online" (=single quadratic term) or "offline" (=quadratic term per task) EWC
+        args.batchsize: int
+        args.pred_weight: 0.0 (Auxilary task loss coefficient)
+        args.train_device: cuda:0
+    Returns:
+        float: ewc loss
+    """
+
     def __init__(self, args):
         super().__init__()
-        self.ewc_gamma = (
-            args.ewc_gamma
-        ) 
-        self.online = (
-            args.online
-        )
+        self.ewc_gamma = args.ewc_gamma
+        self.online = args.online
         self.batchsize = args.batchsize
         self.pred_weight = args.pred_weight
         self.train_device = args.train_device

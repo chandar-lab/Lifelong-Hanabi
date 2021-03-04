@@ -58,6 +58,7 @@ def evaluate(agents, num_game, seed, bomb, eps, sad, *, hand_size=5, runners=Non
     num_perfect = np.sum([1 for s in scores if s == 25])
     return np.mean(scores), num_perfect / len(scores), scores, num_perfect
 
+
 def evaluate_legacy_model(
     weight_files,
     num_game,

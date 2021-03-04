@@ -223,8 +223,12 @@ if __name__ == "__main__":
         learnable_agent_ckpts = glob.glob(f"{args.save_dir}/*_zero_shot.pthw")
         learnable_agent_ckpts.sort(key=os.path.getmtime)
         print("restoring from ... ", learnable_agent_ckpts[-1])
-        utils.load_weight(learnable_agent.online_net, learnable_agent_ckpts[-1], args.train_device)
-        epoch_restore = int(learnable_agent_ckpts[-1].split("/")[-1].split(".")[0].split("_")[1][5:])
+        utils.load_weight(
+            learnable_agent.online_net, learnable_agent_ckpts[-1], args.train_device
+        )
+        epoch_restore = int(
+            learnable_agent_ckpts[-1].split("/")[-1].split(".")[0].split("_")[1][5:]
+        )
         print("epoch restore is ... ", epoch_restore)
 
     learnable_agent = learnable_agent.to(args.train_device)
@@ -287,7 +291,6 @@ if __name__ == "__main__":
 
         fixed_agent = fixed_agent.to(args.train_device)
         fixed_agents.append(fixed_agent)
-
 
     ## common RB
     replay_buffer = rela.RNNPrioritizedReplay(
@@ -376,7 +379,7 @@ if __name__ == "__main__":
     stopwatch = common_utils.Stopwatch()
 
     mtl_done = False
-    
+
     if args.resume_cont_training:
         initial_epoch = epoch_restore // len(fixed_agents)
         total_epochs = initial_epoch
@@ -404,7 +407,7 @@ if __name__ == "__main__":
 
             num_update = batch_idx + epoch * args.epoch_len
             for task_idx, fixed_agent in enumerate(fixed_agents):
-                
+
                 if args.resume_cont_training:
                     if epoch == initial_epoch and batch_idx == 0:
                         tachometers[task_idx].start()

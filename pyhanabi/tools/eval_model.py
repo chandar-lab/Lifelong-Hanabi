@@ -46,10 +46,17 @@ if __name__ == "__main__":
             ## we are doing cross player, the 2 players use different weights
             print("Current game is ", str(ag1_idx) + " vs " + str(ag2_idx))
             weight_files = [ag1, ag2]
-            agent_args={}
+            agent_args = {}
             # # fast evaluation for 5k games
             mean, sem, _ = evaluate_legacy_model(
-                weight_files, 1000, 1, 0, agent_args, args, num_run=5, gen_cross_play=True
+                weight_files,
+                1000,
+                1,
+                0,
+                agent_args,
+                args,
+                num_run=5,
+                gen_cross_play=True,
             )
             scores_arr[ag1_idx, ag2_idx] = mean
             sem_arr[ag1_idx, ag2_idx] = sem
