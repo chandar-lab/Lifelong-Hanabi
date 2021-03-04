@@ -72,35 +72,35 @@ Important flags are:
 
 For details of other hyperparameters refer code and/or paper. 
 
-#### * Pre-train a new agent through self-play 
+#### * Pre-train a new agent through self-play:
 A sample script is provided in `pyhanabi/tools/pretrain.sh` that can be run:
 ```bash
 cd pyhanabi
 sh tools/pretrain.sh
 ```
 
-#### * Reproduce the Cross-Play matrix:
-To evaluate all the agents with each other, simply run:
+#### * Reproduce the cross-play matrix:
+To evaluate all the agents with each other, run:
 ```bash
 cd pyhanabi
 sh generate_cp.sh
 ```
 
 ### 2- Continual Training
-To train the learner with a set of 5 partners using [ER](https://arxiv.org/abs/1902.10486) method, run:
+To train the learner with a set of 5 partners using for eg. [ER](https://arxiv.org/abs/1902.10486) method, run:
 ```bash
 cd pyhanabi
 sh tools/continual_learning_scripts/ER_easy_interactive.sh
 ```
 Zero-shot and few-shot checkpoints will be stored in `<save-dir>`. 
+Similar scripts are available for all the other algorithms described in paper. 
 
-To log the continual training results, run:
+In order to log the continual training results (from the above checkpoints stored in `<save-dir>`), run:
 
 ```bash
 cd pyhanabi
 sh tools/continual_evaluation.sh
 ```
-This step needs a [wandb](https://wandb.ai/home) account to plot the results. 
 
 ### 3- Testing
 To evaluate the learner against a set of unseen agents, run:
@@ -108,7 +108,8 @@ To evaluate the learner against a set of unseen agents, run:
 cd pyhanabi
 sh tools/testing.sh
 ```
-This step also needs a [wandb](https://wandb.ai/home) account to plot the results. 
+Logging continual training results and testing requires a [wandb](https://wandb.ai/home) account to plot the results. 
+
 ## Plot results
 All the plots and experiment details are available at [wandb report](https://wandb.ai/akileshbadrinaaraayanan/ContPlay_Hanabi_complete/reports/Lifelong-Hanabi-Experiments--VmlldzozOTk2NjY).
 
