@@ -90,7 +90,7 @@ This step needs a [wandb](https://wandb.ai/home) account to plot the results.
 To evaluate the learner against a set of unseen agents, run:
 ```bash
 cd pyhanabi
-python final_evaluation.py
+sh tools/testing.sh
 ```
 This step also needs a [wandb](https://wandb.ai/home) account to plot the results. 
 ## Plot results
