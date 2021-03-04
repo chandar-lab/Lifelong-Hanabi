@@ -9,7 +9,6 @@ sweep
 sweep_*
 plot.png
 sweep*.py
-*.ipynb*
 models/*
 logs/*
 unused/*
