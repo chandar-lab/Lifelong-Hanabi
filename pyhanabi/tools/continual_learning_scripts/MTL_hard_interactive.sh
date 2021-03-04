@@ -9,7 +9,7 @@ INITIAL_LR=0.02
 BATCH_SIZE=128
 OPTIM_NAME="SGD"
 SEED=10
-python cont_multitask.py \
+python multitask.py \
        --save_dir ${SAVE_DIR} \
        --load_model_dir ${LOAD_MODEL_DIR} \
        --method iql \
