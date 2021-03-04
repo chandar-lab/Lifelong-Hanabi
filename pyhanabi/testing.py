@@ -39,9 +39,8 @@ if __name__ == "__main__":
     cont_train_args_txt = glob.glob(f"{args.weight_1_dir}/*.txt")
     with open(cont_train_args_txt[0], "r") as f:
         agent_args = {**json.load(f)}
-
-
-    exp_name = f"test_"{agent_args["save_dir"].split("/")[-1]}
+    save_dir=agent_args["save_dir"].split("/")[-1]
+    exp_name = f"test_{save_dir}"
     wandb.init(project="Lifelong_Hanabi_project", name=exp_name)
     wandb.config.update(agent_args)
 

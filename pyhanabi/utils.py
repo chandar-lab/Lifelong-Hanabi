@@ -6,7 +6,6 @@ import json
 import torch
 import numpy as np
 import rela
-import random
 from create import *
 import common_utils
 

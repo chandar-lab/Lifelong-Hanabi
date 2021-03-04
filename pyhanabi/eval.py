@@ -3,7 +3,7 @@ import time
 import json
 import numpy as np
 import torch
-
+import random
 from create import *
 import rela
 import utils
@@ -98,12 +98,13 @@ def evaluate_legacy_model(
                 agent_args = {**json.load(f)}
         else:
             learnable_pretrain = True
-            learnable_agent_name = agent_args["load_learnable_model"]
 
-            if i == 0 and learnable_agent_name != "":
-                agent_args_file = f"{learnable_agent_name[:-4]}txt"
-            elif i == 0:
-                learnable_pretrain = False
+            if i == 0:
+                learnable_agent_name = agent_args["load_learnable_model"]
+                if learnable_agent_name != "":
+                    agent_args_file = f"{learnable_agent_name[:-4]}txt"
+                else:
+                    learnable_pretrain = False
             else:
                 agent_args_file = f"{weight_file[:-4]}txt"
 
@@ -137,7 +138,7 @@ def evaluate_legacy_model(
             sad=sad,
         ).to(device)
 
-        load_weight(agent.online_net, weight_file, device)
+        utils.load_weight(agent.online_net, weight_file, device)
         agents.append(agent)
 
     scores = []
@@ -163,7 +164,7 @@ def evaluate_legacy_model(
     if verbose:
         print("score: %f +/- %f" % (mean, sem), "; perfect: ", perfect_rate)
     return mean, sem, perfect_rate
-    
+
 
 def evaluate_saved_model(
     weight_files,
