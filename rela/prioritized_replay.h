@@ -1,9 +1,5 @@
-// Copyright (c) Facebook, Inc. and its affiliates.
-// All rights reserved.
-//
-// This source code is licensed under the license found in the
-// LICENSE file in the root directory of this source tree.
-//
+// Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
+
 #pragma once
 
 #include <future>
@@ -11,7 +7,8 @@
 #include <torch/extension.h>
 #include <vector>
 
-#include "rela/types.h"
+#include "rela/tensor_dict.h"
+#include "rela/transition.h"
 
 namespace rela {
 
@@ -125,6 +122,11 @@ class ConcurrentQueue {
   // ------------------------------------------------------------- //
   // accessing elements is never locked, operate safely!
 
+  DataType get(int idx) {
+    int id = (head_ + idx) % capacity;
+    return elements_[id];
+  }
+
   DataType getElementAndMark(int idx) {
     int id = (head_ + idx) % capacity;
     evicted_[id] = false;
@@ -208,6 +210,7 @@ class PrioritizedReplay {
       std::cout << "Error: previous samples' priority has not been updated." << std::endl;
       assert(false);
     }
+    // std::cout << "Batch size inside sample is : " << batchsize << std::endl;
 
     DataType batch;
     torch::Tensor priority;
@@ -225,11 +228,12 @@ class PrioritizedReplay {
     }
 
     while ((int)futures_.size() < prefetch_) {
-      auto f = std::async(std::launch::async,
-                          &PrioritizedReplay<DataType>::sample_,
-                          this,
-                          batchsize,
-                          device);
+      auto f = std::async(
+          std::launch::async,
+          &PrioritizedReplay<DataType>::sample_,
+          this,
+          batchsize,
+          device);
       futures_.push(std::move(f));
     }
 
@@ -237,6 +241,13 @@ class PrioritizedReplay {
   }
 
   void updatePriority(const torch::Tensor& priority) {
+    if (priority.size(0) == 0) {
+      sampledIds_.clear();
+      return;
+    }
+    // std::cout << "inside updatePriority sample Ids size is " << (int)sampledIds_.size() << std::endl;
+    // std::cout << "inside updatePriority priority size is " << priority.size(0) << std::endl;
+
     assert(priority.dim() == 1);
     assert((int)sampledIds_.size() == priority.size(0));
 
@@ -246,6 +257,14 @@ class PrioritizedReplay {
       storage_.update(sampledIds_, weights);
     }
     sampledIds_.clear();
+  }
+  
+  void slice(int drop_size){
+    storage_.blockPop(drop_size);
+  }
+
+  DataType get(int idx) {
+    return storage_.get(idx);
   }
 
   int size() const {
@@ -262,8 +281,10 @@ class PrioritizedReplay {
   SampleWeightIds sample_(int batchsize, const std::string& device) {
     std::unique_lock<std::mutex> lk(mSampler_);
 
+    // std::cout << "batch size inside sample_ function is " << batchsize << std::endl; 
     float sum;
     int size = storage_.safeSize(&sum);
+    assert(size >= batchsize);
     // std::cout << "size: "<< size << ", sum: " << sum << std::endl;
     // storage_ [0, size) remains static in the subsequent section
 
@@ -310,6 +331,8 @@ class PrioritizedReplay {
         ++nextIdx;
       }
     }
+    // std::cout << "samples size after populating inside samples_ is " << (int)samples.size() << std::endl;
+    // std::cout << "batch size before asserting inside samples_ is " << batchsize << std::endl;
     assert((int)samples.size() == batchsize);
 
     // pop storage if full
@@ -347,6 +370,9 @@ class PrioritizedReplay {
   std::mt19937 rng_;
 };
 
+// template class PrioritizedReplay<FFTransition>;
 using FFPrioritizedReplay = PrioritizedReplay<FFTransition>;
+
+// template class PrioritizedReplay<RNNTransition>;
 using RNNPrioritizedReplay = PrioritizedReplay<RNNTransition>;
 }

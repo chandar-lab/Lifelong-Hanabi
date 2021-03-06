@@ -1,22 +1,165 @@
-# Copyright (c) Facebook, Inc. and its affiliates.
-# All rights reserved.
 #
-# This source code is licensed under the license found in the
-# LICENSE file in the root directory of this source tree.
-#
+import os
 import time
+from collections import OrderedDict
+import json
 import torch
+import numpy as np
+import rela
+from create import *
 import common_utils
-from create_envs import *
+
+
+def parse_first_dict(lines):
+    config_lines = []
+    open_count = 0
+    for i, l in enumerate(lines):
+        if l.strip()[0] == "{":
+            open_count += 1
+        if open_count:
+            config_lines.append(l)
+        if l.strip()[-1] == "}":
+            open_count -= 1
+        if open_count == 0 and len(config_lines) != 0:
+            break
+
+    config = "".join(config_lines).replace("'", '"')
+    config = config.replace("True", "true")
+    config = config.replace("False", "false")
+    config = json.loads(config)
+    return config, lines[i + 1 :]
+
+
+def get_train_config(weight_file):
+    log = os.path.join(os.path.dirname(weight_file), "train.log")
+    if not os.path.exists(log):
+        return None
+
+    lines = open(log, "r").readlines()
+    cfg, rest = parse_first_dict(lines)
+    # net_size, _ = parse_first_dict(rest)
+    # cfg.update(net_size)
+    return cfg
+
+
+def flatten_dict(d, new_dict):
+    for k, v in d.items():
+        if isinstance(v, dict):
+            flatten_dict(v, new_dict)
+        else:
+            new_dict[k] = v
+
+
+def load_agent(weight_file, overwrite):
+    """
+    overwrite has to contain "device"
+    TODO: this has boltzmann_t in create_envs and boltzmann_act in config
+    These are probably obsolete and hence might hinder our ability to use it right now.
+    """
+    cfg = get_train_config(weight_file)
+    assert cfg is not None
+
+    if "core" in cfg:
+        new_cfg = {}
+        flatten_dict(cfg, new_cfg)
+        cfg = new_cfg
+
+    game = create_envs(
+        1,
+        1,
+        cfg["num_player"],
+        cfg["train_bomb"],
+        [0],  # explore_eps,
+        [100],  # boltzmann_t,
+        cfg["max_len"],
+        cfg["sad"] if "sad" in cfg else cfg["greedy_extra"],
+        cfg["shuffle_obs"],
+        cfg["shuffle_color"],
+        cfg["hide_action"],
+        True,
+    )[0]
+
+    config = {
+        "vdn": overwrite["vdn"] if "vdn" in overwrite else cfg["method"] == "vdn",
+        "multi_step": overwrite.get("multi_step", cfg["multi_step"]),
+        "gamma": overwrite.get("gamma", cfg["gamma"]),
+        "eta": 0.9,
+        "device": overwrite["device"],
+        "in_dim": game.feature_size(),
+        "hid_dim": cfg["hid_dim"] if "hid_dim" in cfg else cfg["rnn_hid_dim"],
+        "out_dim": game.num_action(),
+        "num_fflayer": overwrite.get("num_fflayer", cfg["num_fflayer"]),
+        "num_rnn_layer": overwrite.get("num_rnn_layer", cfg["num_rnn_layer"]),
+        "boltzmann_act": overwrite.get("boltzmann_act", cfg["boltzmann_act"]),
+        "hand_size": overwrite.get("hand_size", cfg["hand_size"]),
+        "uniform_priority": overwrite.get("uniform_priority", False),
+    }
+    if cfg["rnn_type"] == "lstm":
+        import r2d2_lstm as r2d2_lstm
+
+        agent = r2d2_lstm.R2D2Agent(**config).to(config["device"])
+    elif cfg["rnn_type"] == "gru":
+        import r2d2_gru as r2d2_gru
+
+        agent = r2d2_gru.R2D2Agent(**config).to(config["device"])
+
+    load_weight(agent.online_net, weight_file, config["device"])
+    agent.sync_target_with_online()
+    return agent, cfg
+
+
+def log_explore_ratio(games, expected_eps):
+    explore = []
+    for g in games:
+        explore.append(g.get_explore_count())
+    explore = np.stack(explore)
+    explore = explore.sum(0)  # .reshape((8, 10)).sum(1)
+
+    step_counts = []
+    for g in games:
+        step_counts.append(g.get_step_count())
+    step_counts = np.stack(step_counts)
+    step_counts = step_counts.sum(0)  # .reshape((8, 10)).sum(1)
+
+    factor = []
+    for i in range(len(explore)):
+        if step_counts[i] == 0:
+            factor.append(1.0)
+        else:
+            f = expected_eps / max(1e-5, (explore[i] / step_counts[i]))
+            f = max(0.5, min(f, 2))
+            factor.append(f)
+    print(">>>explore factor:", len(factor))
+
+    explore = explore.reshape((8, 10)).sum(1)
+    step_counts = step_counts.reshape((8, 10)).sum(1)
+
+    print("exploration:")
+    for i in range(len(explore)):
+        ratio = 100 * explore[i] / step_counts[i]
+        print(
+            "\tbucket [%2d, %2d]: %5d, %5d, %2.2f%%"
+            % (i * 10, (i + 1) * 10, explore[i], step_counts[i], ratio)
+        )
+
+    # print('timestep visit count:')
+    # for i in range(len(step_counts)):
+    #     print('\tbucket [%2d, %2d]: %.2f' % (i*10, (i+1)*10, 100 * step_counts[i]))
+
+    for g in games:
+        g.reset_count()
+
+    return factor
 
 
 class Tachometer:
-    def __init__(self):
+    def __init__(self, iseval=False):
         self.num_act = 0
         self.num_buffer = 0
         self.num_train = 0
         self.t = None
         self.total_time = 0
+        self.iseval = iseval
 
     def start(self):
         self.t = time.time()
@@ -29,9 +172,57 @@ class Tachometer:
         num_buffer = replay_buffer.num_add()
         buffer_rate = factor * (num_buffer - self.num_buffer) / t
         train_rate = factor * num_train / t
+        if self.iseval:
+            print(
+                "Eval Speed: train: %.1f, act: %.1f, buffer_add: %.1f, buffer_size: %d"
+                % (train_rate, act_rate, buffer_rate, replay_buffer.size())
+            )
+        else:
+            print(
+                "Speed: train: %.1f, act: %.1f, buffer_add: %.1f, buffer_size: %d"
+                % (train_rate, act_rate, buffer_rate, replay_buffer.size())
+            )
+        self.num_act = num_act
+        self.num_buffer = num_buffer
+        self.num_train += num_train
+        if self.iseval:
+            print(
+                "Eval Total Time: %s, %ds"
+                % (common_utils.sec2str(self.total_time), self.total_time)
+            )
+        else:
+            print(
+                "Total Time: %s, %ds"
+                % (common_utils.sec2str(self.total_time), self.total_time)
+            )
+        if self.iseval:
+            print(
+                "Eval Total Sample: train: %s, act: %s"
+                % (
+                    common_utils.num2str(self.num_train),
+                    common_utils.num2str(self.num_act),
+                )
+            )
+        else:
+            print(
+                "Total Sample: train: %s, act: %s"
+                % (
+                    common_utils.num2str(self.num_train),
+                    common_utils.num2str(self.num_act),
+                )
+            )
+
+    def lap2(self, actors, num_buffer, num_train):
+        t = time.time() - self.t
+        self.total_time += t
+        num_act = get_num_acts(actors)
+        act_rate = (num_act - self.num_act) / t
+        # num_buffer = replay_buffer.num_add()
+        buffer_rate = (num_buffer - self.num_buffer) / t
+        train_rate = num_train / t
         print(
-            "Speed: train: %.1f, act: %.1f, buffer_add: %.1f, buffer_size: %d"
-            % (train_rate, act_rate, buffer_rate, replay_buffer.size())
+            "Speed: train: %.1f, act: %.1f, buffer_add: %.1f"
+            % (train_rate, act_rate, buffer_rate)
         )
         self.num_act = num_act
         self.num_buffer = num_buffer
@@ -46,36 +237,229 @@ class Tachometer:
         )
 
 
-def to_device(batch, device):
-    if isinstance(batch, torch.Tensor):
-        return batch.to(device).detach()
-    elif isinstance(batch, dict):
-        return {key: to_device(batch[key], device) for key in batch}
-    elif isinstance(batch, rela.FFTransition):
-        batch.obs = to_device(batch.obs, device)
-        batch.action = to_device(batch.action, device)
-        batch.reward = to_device(batch.reward, device)
-        batch.terminal = to_device(batch.terminal, device)
-        batch.bootstrap = to_device(batch.bootstrap, device)
-        batch.next_obs = to_device(batch.next_obs, device)
-        return batch
-    elif isinstance(batch, rela.RNNTransition):
-        batch.obs = to_device(batch.obs, device)
-        batch.h0 = to_device(batch.h0, device)
-        batch.action = to_device(batch.action, device)
-        batch.reward = to_device(batch.reward, device)
-        batch.terminal = to_device(batch.terminal, device)
-        batch.bootstrap = to_device(batch.bootstrap, device)
-        batch.seq_len = to_device(batch.seq_len, device)
-        return batch
+def load_weight(model, weight_file, device):
+    state_dict = torch.load(weight_file, map_location=device)
+    source_state_dict = OrderedDict()
+    target_state_dict = model.state_dict()
+    for k, v in target_state_dict.items():
+        if k not in state_dict:
+            print("warning: %s not loaded" % k)
+            state_dict[k] = v
+    for k in state_dict:
+        if k not in target_state_dict:
+            # print(target_state_dict.keys())
+            print("removing: %s not used" % k)
+            # state_dict.pop(k)
+        else:
+            source_state_dict[k] = state_dict[k]
+
+    # if "pred.weight" in state_dict:
+    #     state_dict.pop("pred.bias")
+    #     state_dict.pop("pred.weight")
+    # print("source state dict ", source_state_dict.keys())
+    model.load_state_dict(source_state_dict)
+    return
+
+
+def make_batch_ER(args, episodic_memory, batch, weight, stat, learnable_agent):
+    prev_tasks_b = []
+    prev_tasks_w = []
+
+    for prev_task_idx in range(len(episodic_memory)):
+        samples_per_task = args.batchsize // len(episodic_memory)
+        n_residual = args.batchsize - (samples_per_task * len(episodic_memory))
+        if prev_task_idx < n_residual:
+            samples_per_task += 1
+        b, w = episodic_memory[prev_task_idx].sample(args.batchsize, args.train_device)
+        prev_tasks_b.append(b)
+        prev_tasks_w.append(w)
+        batch_obs = {}
+        batch_act = {}
+        for k in batch.obs.keys():
+            if k == "eps":
+                batch_obs[k] = torch.cat(
+                    [batch.obs[k], b.obs[k][:, :samples_per_task]], dim=1
+                )
+            else:
+                batch_obs[k] = torch.cat(
+                    [batch.obs[k], b.obs[k][:, :samples_per_task, :]], dim=1
+                )
+
+        batch.obs = batch_obs
+
+        for k in batch.action.keys():
+            batch_act[k] = torch.cat(
+                [batch.action[k], b.action[k][:, :samples_per_task]], dim=1
+            )
+
+        batch.action = batch_act
+
+        batch.reward = torch.cat([batch.reward, b.reward[:, :samples_per_task]], dim=1)
+        batch.terminal = torch.cat(
+            [batch.terminal, b.terminal[:, :samples_per_task]], dim=1
+        )
+        batch.bootstrap = torch.cat(
+            [batch.bootstrap, b.bootstrap[:, :samples_per_task]], dim=1
+        )
+
+        batch.seq_len = torch.cat([batch.seq_len, b.seq_len[:samples_per_task]], dim=0)
+        weight = torch.cat([weight, w[:samples_per_task]], dim=0)
+
+    for prev_task_idx in range(len(episodic_memory)):
+        _, p = learnable_agent.loss(prev_tasks_b[prev_task_idx], args.pred_weight, stat)
+        p = rela.aggregate_priority(
+            p.cpu(), prev_tasks_b[prev_task_idx].seq_len.cpu(), args.eta
+        )
+        episodic_memory[prev_task_idx].update_priority(p)
+
+    return batch, weight, episodic_memory
+
+
+def make_batch_AGEM(args, episodic_memory, stat, learnable_agent):
+    prev_tasks_b = []
+    prev_tasks_w = []
+    batch_obs = {}
+    batch_act = {}
+
+    for prev_task_idx in range(len(episodic_memory)):
+        samples_per_task = args.batchsize // len(episodic_memory)
+        n_residual = args.batchsize - (samples_per_task * len(episodic_memory))
+        if prev_task_idx < n_residual:
+            samples_per_task += 1
+        b, w = episodic_memory[prev_task_idx].sample(args.batchsize, args.train_device)
+        prev_tasks_b.append(b)
+        prev_tasks_w.append(w)
+
+        if prev_task_idx == 0:
+            for k in b.obs.keys():
+                if k == "eps":
+                    batch_obs[k] = b.obs[k][:, :samples_per_task]
+                else:
+                    batch_obs[k] = b.obs[k][:, :samples_per_task, :]
+        elif prev_task_idx > 0:
+            for k in b.obs.keys():
+                if k == "eps":
+                    batch_obs[k] = torch.cat(
+                        [batch_obs[k], b.obs[k][:, :samples_per_task]], dim=1
+                    )
+                else:
+                    batch_obs[k] = torch.cat(
+                        [batch_obs[k], b.obs[k][:, :samples_per_task, :]], dim=1
+                    )
+
+        if prev_task_idx == 0:
+            for k in b.action.keys():
+                batch_act[k] = b.action[k][:, :samples_per_task]
+        elif prev_task_idx > 0:
+            for k in b.action.keys():
+                batch_act[k] = torch.cat(
+                    [batch_act[k], b.action[k][:, :samples_per_task]], dim=1
+                )
+
+        if prev_task_idx == 0:
+            batch_reward = b.reward[:, :samples_per_task]
+            batch_terminal = b.terminal[:, :samples_per_task]
+            batch_bootstrap = b.bootstrap[:, :samples_per_task]
+            batch_seq_len = b.seq_len[:samples_per_task]
+            batch_weight = w[:samples_per_task]
+        elif prev_task_idx > 0:
+            batch_reward = torch.cat(
+                [batch_reward, b.reward[:, :samples_per_task]], dim=1
+            )
+            batch_terminal = torch.cat(
+                [batch_terminal, b.terminal[:, :samples_per_task]], dim=1
+            )
+            batch_bootstrap = torch.cat(
+                [batch_bootstrap, b.bootstrap[:, :samples_per_task]], dim=1
+            )
+            batch_seq_len = torch.cat(
+                [batch_seq_len, b.seq_len[:samples_per_task]], dim=0
+            )
+            batch_weight = torch.cat([batch_weight, w[:samples_per_task]], dim=0)
+
+        if prev_task_idx == len(episodic_memory) - 1:
+            b.obs = batch_obs
+            b.action = batch_act
+            b.reward = batch_reward
+            b.terminal = batch_terminal
+            b.bootstrap = batch_bootstrap
+            b.seq_len = batch_seq_len
+
+            w = batch_weight
+
+    ## TODO: find a better solution instead of this hack of slicing priority
+    for prev_task_idx in range(len(episodic_memory)):
+        _, p = learnable_agent.loss(prev_tasks_b[prev_task_idx], args.pred_weight, stat)
+        p = rela.aggregate_priority(
+            p.cpu(), prev_tasks_b[prev_task_idx].seq_len.cpu(), args.eta
+        )
+        episodic_memory[prev_task_idx].update_priority(p)
+
+    if len(episodic_memory) > 0:
+        return b, w, episodic_memory
     else:
-        assert False, "unsupported type: %s" % type(batch)
+        return None, None, episodic_memory
 
 
-def get_game_info(num_player, greedy_extra):
-    game = hanalearn.HanabiEnv({"players": str(num_player)}, -1, greedy_extra, False,)
+def get_grad_list(learnable_agent):
+    ## reorganize the gradient of batch as a single vector
+    grad = []
+    for p in learnable_agent.online_net.parameters():
+        if p.requires_grad:
+            if p.grad is not None:
+                grad.append(p.grad.view(-1))
+    grad = torch.cat(grad)
+    return grad
 
-    info = {"input_dim": game.feature_size(), "num_action": game.num_action()}
+
+def grad_proj(grad_cur, grad_rep, learnable_agent):
+    ## adding A-GEM projection inequality.
+    angle = (grad_cur * grad_rep).sum()
+    if angle < 0:
+        # -if violated, project the gradient of the current batch onto the gradient of the replayed batch ...
+        length_rep = (grad_rep * grad_rep).sum()
+        grad_proj = grad_cur - (angle / length_rep) * grad_rep
+        # -...and replace all the gradients within the model with this projected gradient
+        index = 0
+        for p in learnable_agent.online_net.parameters():
+            if p.requires_grad:
+                if p.grad is not None:
+                    n_param = p.numel()  # number of parameters in [p]
+                    p.grad.copy_(grad_proj[index : index + n_param].view_as(p))
+                    index += n_param
+
+    return learnable_agent
+
+
+def get_game_info(num_player, greedy_extra, feed_temperature, extra_args=None):
+    params = {"players": str(num_player)}
+    if extra_args is not None:
+        params.update(extra_args)
+    game = hanalearn.HanabiEnv(
+        params,
+        [0],
+        [],
+        -1,
+        greedy_extra,
+        False,
+        False,
+        False,
+        feed_temperature,
+        False,
+        False,
+    )
+
+    if num_player < 5:
+        hand_size = 5
+    else:
+        hand_size = 4
+
+    info = {
+        "input_dim": game.feature_size(),
+        "num_action": game.num_action(),
+        "hand_size": hand_size,
+        "hand_feature_size": game.hand_feature_size(),
+    }
     # print(info)
     return info
 
@@ -93,7 +477,10 @@ def compute_input_dim(num_player):
 def get_num_acts(actors):
     total_acts = 0
     for actor in actors:
-        total_acts += actor.num_act()
+        if isinstance(actor, list):
+            total_acts += get_num_acts(actor)
+        else:
+            total_acts += actor.num_act()
     return total_acts
 
 
@@ -109,17 +496,27 @@ def get_frame_stat(num_game_per_thread, time_elapsed, num_acts, num_buffer, fram
     return total_sample, act_rate, buffer_rate
 
 
-def generate_actor_eps(base_eps, alpha, num_actor):
-    if num_actor == 1:
+def generate_explore_eps(base_eps, alpha, num_env):
+    if num_env == 1:
+        if base_eps < 1e-6:
+            base_eps = 0
         return [base_eps]
 
     eps_list = []
-    for i in range(num_actor):
-        eps = base_eps ** (1 + i / (num_actor - 1) * alpha)
+    for i in range(num_env):
+        eps = base_eps ** (1 + i / (num_env - 1) * alpha)
         if eps < 1e-6:
             eps = 0
         eps_list.append(eps)
     return eps_list
+
+
+def generate_log_uniform(min_val, max_val, n):
+    log_min = np.log(min_val)
+    log_max = np.log(max_val)
+    uni = np.linspace(log_min, log_max, n)
+    uni_exp = np.exp(uni)
+    return uni_exp.tolist()
 
 
 @torch.jit.script
