@@ -5,6 +5,7 @@ from collections import OrderedDict
 import json
 import torch
 import numpy as np
+import glob
 import rela
 from create import *
 import common_utils
@@ -37,8 +38,6 @@ def get_train_config(weight_file):
 
     lines = open(log, "r").readlines()
     cfg, rest = parse_first_dict(lines)
-    # net_size, _ = parse_first_dict(rest)
-    # cfg.update(net_size)
     return cfg
 
 
@@ -53,8 +52,6 @@ def flatten_dict(d, new_dict):
 def load_agent(weight_file, overwrite):
     """
     overwrite has to contain "device"
-    TODO: this has boltzmann_t in create_envs and boltzmann_act in config
-    These are probably obsolete and hence might hinder our ability to use it right now.
     """
     cfg = get_train_config(weight_file)
     assert cfg is not None
@@ -142,10 +139,6 @@ def log_explore_ratio(games, expected_eps):
             % (i * 10, (i + 1) * 10, explore[i], step_counts[i], ratio)
         )
 
-    # print('timestep visit count:')
-    # for i in range(len(step_counts)):
-    #     print('\tbucket [%2d, %2d]: %.2f' % (i*10, (i+1)*10, 100 * step_counts[i]))
-
     for g in games:
         g.reset_count()
 
@@ -164,10 +157,10 @@ class Tachometer:
     def start(self):
         self.t = time.time()
 
-    def lap(self, actors, replay_buffer, num_train, factor):
+    def lap(self, actors, replay_buffer, num_train, factor, prev_steps):
         t = time.time() - self.t
         self.total_time += t
-        num_act = get_num_acts(actors)
+        num_act = get_num_acts(actors, prev_steps)
         act_rate = factor * (num_act - self.num_act) / t
         num_buffer = replay_buffer.num_add()
         buffer_rate = factor * (num_buffer - self.num_buffer) / t
@@ -215,9 +208,8 @@ class Tachometer:
     def lap2(self, actors, num_buffer, num_train):
         t = time.time() - self.t
         self.total_time += t
-        num_act = get_num_acts(actors)
+        num_act = get_num_acts(actors, 0)
         act_rate = (num_act - self.num_act) / t
-        # num_buffer = replay_buffer.num_add()
         buffer_rate = (num_buffer - self.num_buffer) / t
         train_rate = num_train / t
         print(
@@ -247,16 +239,10 @@ def load_weight(model, weight_file, device):
             state_dict[k] = v
     for k in state_dict:
         if k not in target_state_dict:
-            # print(target_state_dict.keys())
             print("removing: %s not used" % k)
-            # state_dict.pop(k)
         else:
             source_state_dict[k] = state_dict[k]
 
-    # if "pred.weight" in state_dict:
-    #     state_dict.pop("pred.bias")
-    #     state_dict.pop("pred.weight")
-    # print("source state dict ", source_state_dict.keys())
     model.load_state_dict(source_state_dict)
     return
 
@@ -387,7 +373,6 @@ def make_batch_AGEM(args, episodic_memory, stat, learnable_agent):
 
             w = batch_weight
 
-    ## TODO: find a better solution instead of this hack of slicing priority
     for prev_task_idx in range(len(episodic_memory)):
         _, p = learnable_agent.loss(prev_tasks_b[prev_task_idx], args.pred_weight, stat)
         p = rela.aggregate_priority(
@@ -460,7 +445,6 @@ def get_game_info(num_player, greedy_extra, feed_temperature, extra_args=None):
         "hand_size": hand_size,
         "hand_feature_size": game.hand_feature_size(),
     }
-    # print(info)
     return info
 
 
@@ -472,10 +456,41 @@ def compute_input_dim(num_player):
     card_knowledge = num_player * 5 * 35
     return hand + board + discard + last_action + card_knowledge
 
+def get_act_steps(save_dir, last_epoch_restore):
+    cont_train_log = glob.glob(f"{save_dir}/*.log")
+    cont_train_log.sort(key=os.path.getmtime)
+
+    act_steps_lns = []
+    act_steps = []
+
+    for i in range(len(cont_train_log)):
+        if i > 0:
+            with open(cont_train_log[i], "r") as f:
+                for ln in f:
+                    if ln.startswith("epoch restore is"):
+                        epoch_restore = int(ln.split(" ")[-1])
+                        act_steps_lns = act_steps_lns[:epoch_restore]
+
+        with open(cont_train_log[i], "r") as f:  
+            for ln in f:
+                if ln.startswith("Total Sample:"):
+                    act_steps_lns.append(ln)
+
+    act_steps_lns = act_steps_lns[:last_epoch_restore]
+
+    for asl in act_steps_lns:
+        ac_st = asl.split(" ")[-1]
+        if ac_st[-2] == "K":
+            st = float(ac_st[:-2]) * float(1000)
+        elif ac_st[-2] == "M":
+            st = float(ac_st[:-2]) * float(1000000)
+        act_steps.append(st)
+    
+    return act_steps
 
 # returns the number of steps in all actors
-def get_num_acts(actors):
-    total_acts = 0
+def get_num_acts(actors, prev_steps):
+    total_acts = prev_steps
     for actor in actors:
         if isinstance(actor, list):
             total_acts += get_num_acts(actor)
@@ -563,12 +578,7 @@ def get_v1(v0_joind, card_counts, ref_mask):
 def check_v1(v0, v1, card_counts, mask):
     ref_v1 = get_v1(v0, card_counts, mask)
     batch, num_player, dim = v1.size()
-    # print('v1:', v1.size())
-    # print('v0:', v0.size())
-    # print('ref_v1:', ref_v1.size())
     v1 = v1.view(batch, 1, 3 * 5, 25).cpu()
-    # print('v1:', v1.size())
-    # print('ref_v1:', ref_v1.size())
     print("diff: ", (ref_v1 - v1).max())
     if (ref_v1 - v1).max() > 1e-4:
         print((ref_v1 - v1)[0][0][0])

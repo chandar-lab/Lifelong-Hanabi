@@ -191,7 +191,7 @@ class ContActGroup:
         max_len,
         num_player,
         is_rand,
-        replay_buffer,
+        replay_buffer
     ):
         self.devices = devices.split(",")
         self.flags = []
@@ -248,7 +248,6 @@ class ContActGroup:
                     )
                     thread_actors.append(actor)
                 self.actors.append(thread_actors)
-        print("Cont ActGroup created")
         self.state_dicts = []
 
     def start(self):

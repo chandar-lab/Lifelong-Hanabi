@@ -46,21 +46,6 @@ if __name__ == "__main__":
     with open(cont_train_args_txt[0], "r") as f:
         agent_args = {**json.load(f)}
 
-    cont_train_log = glob.glob(f"{args.weight_1_dir}/*.log")
-    with open(cont_train_log[0], "r") as f:
-        act_steps_lns = []
-        for ln in f:
-            if ln.startswith("Total Sample:"):
-                act_steps_lns.append(ln)
-    act_steps = []
-    for ac_st_ls in act_steps_lns:
-        ac_st = ac_st_ls.split(" ")[-1]
-        if ac_st[-2] == "K":
-            st = float(ac_st[:-2]) * float(1000)
-            act_steps.append(st)
-        elif ac_st[-2] == "M":
-            st = float(ac_st[:-2]) * float(1000000)
-            act_steps.append(st)
 
     ## move learnable model to test_dir
     if agent_args["load_learnable_model"] != "":
@@ -82,6 +67,9 @@ if __name__ == "__main__":
     ## check if everything in weights_2 exist
     for ag2 in args.weight_2:
         assert os.path.exists(ag2)
+
+    slice_epoch = int(agent_args["num_epoch"]) * (len(args.weight_2)-1) 
+    act_steps = utils.get_act_steps(args.weight_1_dir, slice_epoch)
 
     cur_task = 0
     prev_max = [0] * len(args.weight_2)
@@ -142,6 +130,7 @@ if __name__ == "__main__":
                             ),
                         }
                     )
+
                 if fixed_agent_idx <= cur_task:
                     avg_score += mean_score
                 if fixed_agent_idx > cur_task:
@@ -172,6 +161,7 @@ if __name__ == "__main__":
                     ),
                 }
             )
+
             if cur_task > 0:
                 avg_forgetting = avg_forgetting / (cur_task)
                 wandb.log(
@@ -255,6 +245,7 @@ if __name__ == "__main__":
                     ),
                 }
             )
+
             avg_fs_score = 0
             avg_fs_future_score = 0
 
@@ -269,6 +260,7 @@ if __name__ == "__main__":
                         ),
                     }
                 )
+                
                 avg_fs_forgetting = 0
 
         if (

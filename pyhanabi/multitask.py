@@ -22,6 +22,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="train dqn on hanabi")
     parser.add_argument("--save_dir", type=str, default="exps/exp1")
     parser.add_argument("--load_model_dir", type=str, default="../models/iql_2p")
+    parser.add_argument("--log_file", type=str, default="train.log")
     parser.add_argument("--method", type=str, default="vdn")
     parser.add_argument("--shuffle_obs", type=int, default=0)
     parser.add_argument("--shuffle_color", type=int, default=0)
@@ -30,7 +31,7 @@ def parse_args():
 
     parser.add_argument("--load_learnable_model", type=str, default="")
     parser.add_argument("--resume_cont_training", action="store_true", default=False)
-    parser.add_argument("--load_fixed_models", type=str, nargs="+", default="")
+    parser.add_argument("--load_partner_models", type=str, nargs="+", default="")
 
     parser.add_argument("--seed", type=int, default=10001)
     parser.add_argument("--gamma", type=float, default=0.99, help="discount factor")
@@ -138,7 +139,7 @@ if __name__ == "__main__":
     with open(f"{args.save_dir}/{args.args_dump_name}", "w") as f:
         json.dump(args.__dict__, f, indent=2)
 
-    logger_path = os.path.join(args.save_dir, "train.log")
+    logger_path = os.path.join(args.save_dir, args.log_file)
     sys.stdout = common_utils.Logger(logger_path)
     saver = common_utils.TopkSaver(args.save_dir, 5)
 
@@ -234,9 +235,9 @@ if __name__ == "__main__":
 
     fixed_learnable_agent = learnable_agent.clone(args.train_device, {"vdn": False})
 
-    fixed_agents = []
+    partner_agents = []
 
-    for opp_idx, opp_model in enumerate(args.load_fixed_models):
+    for opp_idx, opp_model in enumerate(args.load_partner_models):
         opp_model_name = opp_model.split("/")[-1].split(".")[0]
 
         with open(f"{args.load_model_dir}/{opp_model_name}.txt") as f:
@@ -247,11 +248,11 @@ if __name__ == "__main__":
             opp_sad = True
 
         if opp_model_args["rnn_type"] == "lstm":
-            import r2d2_lstm as r2d2_fixed
+            import r2d2_lstm as r2d2_partner
         elif opp_model_args["rnn_type"] == "gru":
-            import r2d2_gru as r2d2_fixed
+            import r2d2_gru as r2d2_partner
 
-        fixed_games = create_envs(
+        partner_games = create_envs(
             args.num_thread * args.num_game_per_thread,
             args.seed,
             args.num_player,
@@ -264,15 +265,15 @@ if __name__ == "__main__":
             args.shuffle_color,
         )
 
-        fixed_agent = r2d2_fixed.R2D2Agent(
+        partner_agent = r2d2_partner.R2D2Agent(
             (args.method == "vdn"),
             args.multi_step,
             args.gamma,
             args.eta,
             args.train_device,
-            fixed_games[0].feature_size(),
+            partner_games[0].feature_size(),
             opp_model_args["rnn_hid_dim"],
-            fixed_games[0].num_action(),
+            partner_games[0].num_action(),
             opp_model_args["num_fflayer"],
             opp_model_args["num_rnn_layer"],
             args.hand_size,
@@ -281,12 +282,12 @@ if __name__ == "__main__":
         )
 
         if opp_model:
-            print("*****loading pretrained model for fixed agent *****")
-            utils.load_weight(fixed_agent.online_net, opp_model, args.train_device)
+            print("*****loading pretrained model for partner agent *****")
+            utils.load_weight(partner_agent.online_net, opp_model, args.train_device)
             print("*****done*****")
 
-        fixed_agent = fixed_agent.to(args.train_device)
-        fixed_agents.append(fixed_agent)
+        partner_agent = partner_agent.to(args.train_device)
+        partner_agents.append(partner_agent)
 
 
     ## common RB
@@ -301,9 +302,9 @@ if __name__ == "__main__":
     act_group_list = []
     context_list = []
 
-    for task_idx, fixed_agent in enumerate(fixed_agents):
+    for task_idx, partner_agent in enumerate(partner_agents):
         cont_sad = False
-        if "sad" in args.load_fixed_models[task_idx] or learnable_sad == True:
+        if "sad" in args.load_partner_models[task_idx] or learnable_sad == True:
             cont_sad = True
 
         games = create_envs(
@@ -319,10 +320,11 @@ if __name__ == "__main__":
             args.shuffle_color,
         )
 
+        print("Creating ContActGroup for training with partner "+str(task_idx))
         act_group = ContActGroup(
             args.method,
             args.act_device,
-            [learnable_agent, fixed_agent],
+            [learnable_agent, partner_agent],
             args.num_thread,
             args.num_game_per_thread,
             args.multi_step,
@@ -331,7 +333,7 @@ if __name__ == "__main__":
             args.max_len,
             args.num_player,
             args.is_rand,
-            replay_buffer,
+            replay_buffer
         )
         act_group_list.append(act_group)
 
@@ -346,7 +348,7 @@ if __name__ == "__main__":
         act_group_list[task_idx].start()
         context_list[task_idx].start()
         while replay_buffer.size() < (task_idx + 1) * (
-            args.burn_in_frames // len(fixed_agents)
+            args.burn_in_frames // len(partner_agents)
         ):
             print("warming up replay buffer:", replay_buffer.size())
             time.sleep(1)
@@ -372,14 +374,15 @@ if __name__ == "__main__":
         )
 
     stat = common_utils.MultiCounter(args.save_dir)
-    tachometers = [utils.Tachometer() for _ in range(len(fixed_agents))]
+    tachometers = [utils.Tachometer() for _ in range(len(partner_agents))]
     stopwatch = common_utils.Stopwatch()
 
     mtl_done = False
     
     if args.resume_cont_training:
-        initial_epoch = epoch_restore // len(fixed_agents)
+        initial_epoch = epoch_restore // len(partner_agents)
         total_epochs = initial_epoch
+        act_steps = utils.get_act_steps(args.save_dir, epoch_restore)
     else:
         initial_epoch = 0
         total_epochs = 0
@@ -395,7 +398,11 @@ if __name__ == "__main__":
             total_mtl_steps = 0
             for ac in act_group_list:
                 learnable_agent_actors = [x[0] for x in ac.actors]
-                mtl_steps = utils.get_num_acts(learnable_agent_actors)
+                if args.resume_cont_training:
+                    mtl_steps = utils.get_num_acts(learnable_agent_actors, act_steps[epoch_restore-1])
+                else:
+                    mtl_steps = utils.get_num_acts(learnable_agent_actors, 0)
+
                 total_mtl_steps += mtl_steps
             if total_mtl_steps > args.max_train_steps:
                 print("MTL learning is done after ", total_mtl_steps)
@@ -403,7 +410,7 @@ if __name__ == "__main__":
                 break
 
             num_update = batch_idx + epoch * args.epoch_len
-            for task_idx, fixed_agent in enumerate(fixed_agents):
+            for task_idx, partner_agent in enumerate(partner_agents):
                 
                 if args.resume_cont_training:
                     if epoch == initial_epoch and batch_idx == 0:
@@ -459,6 +466,7 @@ if __name__ == "__main__":
                         replay_buffer,
                         args.epoch_len * args.batchsize,
                         count_factor,
+                        act_steps[epoch_restore-1]
                     )
 
         print("EPOCH: %d" % total_epochs)
@@ -468,12 +476,12 @@ if __name__ == "__main__":
         eval_seed = (9917 + epoch * 999999) % 7777777
 
         if (epoch + 1) % args.eval_freq == 0 or epoch == 0 or mtl_done == True:
-            for eval_fixed_ag_idx, eval_fixed_agent in enumerate(
-                fixed_agents + [fixed_learnable_agent]
+            for eval_partner_ag_idx, eval_partner_agent in enumerate(
+                partner_agents + [fixed_learnable_agent]
             ):
                 print(
-                    "evaluating learnable agent with fixed agent %d "
-                    % eval_fixed_ag_idx
+                    "evaluating learnable agent with partner agent %d "
+                    % eval_partner_ag_idx
                 )
 
                 if args.eval_method == "few_shot":
@@ -502,10 +510,10 @@ if __name__ == "__main__":
                         args.prefetch,
                     )
                     eval_sad = False
-                    if eval_fixed_ag_idx != (
-                        len(fixed_agents + [fixed_learnable_agent]) - 1
+                    if eval_partner_ag_idx != (
+                        len(partner_agents + [fixed_learnable_agent]) - 1
                     ):
-                        if "sad" in args.load_fixed_models[eval_fixed_ag_idx]:
+                        if "sad" in args.load_partner_models[eval_partner_ag_idx]:
                             eval_sad = True
                     elif learnable_sad == True:
                         eval_sad = True
@@ -523,10 +531,11 @@ if __name__ == "__main__":
                         args.shuffle_color,
                     )
 
+                    print("Creating ContActGroup for finetuning with partner "+str(eval_partner_ag_idx))
                     eval_act_group = ContActGroup(
                         args.method,
                         args.act_device,
-                        [few_shot_learnable_agent, eval_fixed_agent],
+                        [few_shot_learnable_agent, eval_partner_agent],
                         args.eval_num_thread,
                         args.eval_num_game_per_thread,
                         args.multi_step,
@@ -535,7 +544,7 @@ if __name__ == "__main__":
                         args.max_len,
                         args.num_player,
                         args.is_rand,
-                        eval_replay_buffer,
+                        eval_replay_buffer
                     )
                     eval_context, eval_threads = create_threads(
                         args.eval_num_thread,
@@ -560,12 +569,12 @@ if __name__ == "__main__":
                                 x[0] for x in eval_act_group.actors
                             ]
                             total_eval_steps = utils.get_num_acts(
-                                eval_learnable_agent_actors
+                                eval_learnable_agent_actors, 0
                             )
                             if total_eval_steps > args.max_eval_steps:
                                 print(
                                     "Finetuning with ",
-                                    eval_fixed_ag_idx,
+                                    eval_partner_ag_idx,
                                     " is done after ",
                                     total_eval_steps,
                                 )
@@ -625,6 +634,7 @@ if __name__ == "__main__":
                             eval_replay_buffer,
                             args.eval_epoch_len * args.batchsize,
                             count_factor,
+                            0
                         )
                         eval_stat.summary(eval_epoch)
                         if eval_done == True:
@@ -632,8 +642,8 @@ if __name__ == "__main__":
 
                     eval_context.pause()
                     fs_force_save_name = "model_epoch%d_few_shot_%d" % (
-                        total_epochs * len(fixed_agents),
-                        eval_fixed_ag_idx,
+                        total_epochs * len(partner_agents),
+                        eval_partner_ag_idx,
                     )
                     few_shot_model_saved = saver.save(
                         None,
@@ -644,7 +654,7 @@ if __name__ == "__main__":
 
             ## zero shot learnable agent.
             zs_force_save_name = "model_epoch%d_zero_shot" % (
-                total_epochs * len(fixed_agents)
+                total_epochs * len(partner_agents)
             )
             zero_shot_model_saved = saver.save(
                 None,

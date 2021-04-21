@@ -2,20 +2,20 @@
 ## specify optim_name to be either Adam or SGD.
 ## specify --decay_lr for learning rate decay.
 ## dropout_p should be 0 for no dropout. dropout_p is drop probability.
+OPTIM_NAME="SGD"
+SEED=10
 EVAL_METHOD="few_shot"
 LOAD_MODEL_DIR=<path-to-pretrained-model-pool-dir>
 SAVE_DIR=<path-to-save-dir>
 INITIAL_LR=0.02
 BATCH_SIZE=32
-OPTIM_NAME="SGD"
-SEED=10
 python continual_training.py \
        --save_dir ${SAVE_DIR} \
        --load_model_dir ${LOAD_MODEL_DIR} \
        --method iql \
        --ll_algo Naive \
        --load_learnable_model ${LOAD_MODEL_DIR}/iql_2p_210.pthw \
-       --load_fixed_model ${LOAD_MODEL_DIR}/iql_2p_310.pthw ${LOAD_MODEL_DIR}/vdn_2p_720.pthw \
+       --load_partner_model ${LOAD_MODEL_DIR}/iql_2p_310.pthw ${LOAD_MODEL_DIR}/vdn_2p_720.pthw \
                           ${LOAD_MODEL_DIR}/vdn_2p_7140.pthw ${LOAD_MODEL_DIR}/iql_op_2p_710.pthw \
                           ${LOAD_MODEL_DIR}/vdn_op_2p_729.pthw \
        --num_thread 10 \

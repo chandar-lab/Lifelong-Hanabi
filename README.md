@@ -55,10 +55,12 @@ export OMP_NUM_THREADS=1
 Run the following command to download the pre-trained agents used in the paper.
 ```bash
 pip install gdown
-gdown --id 1SHnPa5TkE9WuQPq7lCvshkDVBhAG_QNm
+gdown --id 1rpmTPIT-g026pdQfAwHoE4i8tP7Qj2vI
 ```
 You can find a detailed description of each agent's configs and architectures here:
 `results/Pre-trained agents pool for Continual Hanabi.xlsx`
+
+`all_pretrained_pool.zip` contains the pre-trained agents we used in our experiments (this can be extended by further training more expert Hanabi players).
 
 To run any `.sh` file, update `<path-to-pretrained-model-pool-dir>` and `<save-dir>`, accordingly.
 Important flags are:
