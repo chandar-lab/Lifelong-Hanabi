@@ -456,6 +456,7 @@ def compute_input_dim(num_player):
     card_knowledge = num_player * 5 * 35
     return hand + board + discard + last_action + card_knowledge
 
+
 def get_act_steps(save_dir, last_epoch_restore):
     cont_train_log = glob.glob(f"{save_dir}/*.log")
     cont_train_log.sort(key=os.path.getmtime)
@@ -471,7 +472,7 @@ def get_act_steps(save_dir, last_epoch_restore):
                         epoch_restore = int(ln.split(" ")[-1])
                         act_steps_lns = act_steps_lns[:epoch_restore]
 
-        with open(cont_train_log[i], "r") as f:  
+        with open(cont_train_log[i], "r") as f:
             for ln in f:
                 if ln.startswith("Total Sample:"):
                     act_steps_lns.append(ln)
@@ -485,8 +486,9 @@ def get_act_steps(save_dir, last_epoch_restore):
         elif ac_st[-2] == "M":
             st = float(ac_st[:-2]) * float(1000000)
         act_steps.append(st)
-    
+
     return act_steps
+
 
 # returns the number of steps in all actors
 def get_num_acts(actors, prev_steps):

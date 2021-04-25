@@ -46,7 +46,6 @@ if __name__ == "__main__":
     with open(cont_train_args_txt[0], "r") as f:
         agent_args = {**json.load(f)}
 
-
     ## move learnable model to test_dir
     if agent_args["load_learnable_model"] != "":
         initial_learnable_model = agent_args["load_learnable_model"]
@@ -68,7 +67,7 @@ if __name__ == "__main__":
     for ag2 in args.weight_2:
         assert os.path.exists(ag2)
 
-    slice_epoch = int(agent_args["num_epoch"]) * (len(args.weight_2)-1) 
+    slice_epoch = int(agent_args["num_epoch"]) * (len(args.weight_2) - 1)
     act_steps = utils.get_act_steps(args.weight_1_dir, slice_epoch)
 
     cur_task = 0
@@ -260,7 +259,7 @@ if __name__ == "__main__":
                         ),
                     }
                 )
-                
+
                 avg_fs_forgetting = 0
 
         if (

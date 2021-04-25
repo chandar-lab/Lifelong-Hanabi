@@ -299,7 +299,9 @@ if __name__ == "__main__":
         )
 
         if opp_model:
-            print("***** loading pretrained model for partner "+str(opp_idx)+" *****")
+            print(
+                "***** loading pretrained model for partner " + str(opp_idx) + " *****"
+            )
             utils.load_weight(partner_agent.online_net, opp_model, args.train_device)
             print("***** done *****")
 
@@ -347,7 +349,7 @@ if __name__ == "__main__":
                 args.shuffle_color,
             )
 
-            print("Creating ContActGroup for restoring buffer with partner "+str(emi))
+            print("Creating ContActGroup for restoring buffer with partner " + str(emi))
             em_act_group = ContActGroup(
                 args.method,
                 args.act_device,
@@ -360,7 +362,7 @@ if __name__ == "__main__":
                 args.max_len,
                 args.num_player,
                 args.is_rand,
-                em_replay_buffer
+                em_replay_buffer,
             )
             em_context, em_threads = create_threads(
                 args.num_thread,
@@ -381,7 +383,7 @@ if __name__ == "__main__":
 
             if args.ll_algo == "EWC":
                 em_batch, em_weight = em_replay_buffer.sample(
-                args.batchsize, args.train_device
+                    args.batchsize, args.train_device
                 )
 
                 em_stat = common_utils.MultiCounter(args.save_dir)
@@ -400,7 +402,6 @@ if __name__ == "__main__":
     else:
         task_idx_restore = 0
         total_epochs = 0
-
 
     for task_idx, partner_agent in enumerate(partner_agents):
         if task_idx < task_idx_restore:
@@ -446,7 +447,7 @@ if __name__ == "__main__":
             args.shuffle_color,
         )
 
-        print("Creating ContActGroup for training with partner "+str(task_idx))
+        print("Creating ContActGroup for training with partner " + str(task_idx))
         act_group = ContActGroup(
             args.method,
             args.act_device,
@@ -459,7 +460,7 @@ if __name__ == "__main__":
             args.max_len,
             args.num_player,
             args.is_rand,
-            replay_buffer
+            replay_buffer,
         )
 
         assert args.shuffle_obs == False, "not working with 2nd order aux"
@@ -505,10 +506,12 @@ if __name__ == "__main__":
             for batch_idx in range(args.epoch_len):
                 learnable_agent_actors = [x[0] for x in act_group.actors]
                 if args.resume_cont_training:
-                    total_task_steps = utils.get_num_acts(learnable_agent_actors, act_steps[epoch_restore-1])
+                    total_task_steps = utils.get_num_acts(
+                        learnable_agent_actors, act_steps[epoch_restore - 1]
+                    )
                 else:
                     total_task_steps = utils.get_num_acts(learnable_agent_actors, 0)
-                
+
                 if total_task_steps > args.max_train_steps:
                     print(
                         "Training with agent  ",
@@ -605,13 +608,22 @@ if __name__ == "__main__":
             count_factor = args.num_player if args.method == "vdn" else 1
             print("EPOCH: %d" % total_epochs)
             learnable_agent_actors = [x[0] for x in act_group.actors]
-            tachometer.lap(
-                learnable_agent_actors,
-                replay_buffer,
-                args.epoch_len * args.batchsize,
-                count_factor,
-                act_steps[epoch_restore-1]
-            )
+            if args.resume_cont_training:
+                tachometer.lap(
+                    learnable_agent_actors,
+                    replay_buffer,
+                    args.epoch_len * args.batchsize,
+                    count_factor,
+                    act_steps[epoch_restore - 1],
+                )
+            else:
+                tachometer.lap(
+                    learnable_agent_actors,
+                    replay_buffer,
+                    args.epoch_len * args.batchsize,
+                    count_factor,
+                    0,
+                )
 
             stopwatch.summary()
             stat.summary(epoch)
@@ -674,7 +686,10 @@ if __name__ == "__main__":
                             args.shuffle_color,
                         )
 
-                        print("Creating ContActGroup for finetuning with partner "+str(eval_partner_ag_idx))
+                        print(
+                            "Creating ContActGroup for finetuning with partner "
+                            + str(eval_partner_ag_idx)
+                        )
                         eval_act_group = ContActGroup(
                             args.method,
                             args.act_device,
@@ -687,7 +702,7 @@ if __name__ == "__main__":
                             args.max_len,
                             args.num_player,
                             args.is_rand,
-                            eval_replay_buffer
+                            eval_replay_buffer,
                         )
                         eval_context, eval_threads = create_threads(
                             args.eval_num_thread,
@@ -783,7 +798,7 @@ if __name__ == "__main__":
                                 eval_replay_buffer,
                                 args.eval_epoch_len * args.batchsize,
                                 count_factor,
-                                0
+                                0,
                             )
                             eval_stat.summary(eval_epoch)
                             if eval_done == True:

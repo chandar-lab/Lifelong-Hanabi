@@ -224,8 +224,12 @@ if __name__ == "__main__":
         learnable_agent_ckpts = glob.glob(f"{args.save_dir}/*_zero_shot.pthw")
         learnable_agent_ckpts.sort(key=os.path.getmtime)
         print("restoring from ... ", learnable_agent_ckpts[-1])
-        utils.load_weight(learnable_agent.online_net, learnable_agent_ckpts[-1], args.train_device)
-        epoch_restore = int(learnable_agent_ckpts[-1].split("/")[-1].split(".")[0].split("_")[1][5:])
+        utils.load_weight(
+            learnable_agent.online_net, learnable_agent_ckpts[-1], args.train_device
+        )
+        epoch_restore = int(
+            learnable_agent_ckpts[-1].split("/")[-1].split(".")[0].split("_")[1][5:]
+        )
         print("epoch restore is ... ", epoch_restore)
 
     learnable_agent = learnable_agent.to(args.train_device)
@@ -289,7 +293,6 @@ if __name__ == "__main__":
         partner_agent = partner_agent.to(args.train_device)
         partner_agents.append(partner_agent)
 
-
     ## common RB
     replay_buffer = rela.RNNPrioritizedReplay(
         args.replay_buffer_size,
@@ -320,7 +323,7 @@ if __name__ == "__main__":
             args.shuffle_color,
         )
 
-        print("Creating ContActGroup for training with partner "+str(task_idx))
+        print("Creating ContActGroup for training with partner " + str(task_idx))
         act_group = ContActGroup(
             args.method,
             args.act_device,
@@ -333,7 +336,7 @@ if __name__ == "__main__":
             args.max_len,
             args.num_player,
             args.is_rand,
-            replay_buffer
+            replay_buffer,
         )
         act_group_list.append(act_group)
 
@@ -378,7 +381,7 @@ if __name__ == "__main__":
     stopwatch = common_utils.Stopwatch()
 
     mtl_done = False
-    
+
     if args.resume_cont_training:
         initial_epoch = epoch_restore // len(partner_agents)
         total_epochs = initial_epoch
@@ -399,7 +402,9 @@ if __name__ == "__main__":
             for ac in act_group_list:
                 learnable_agent_actors = [x[0] for x in ac.actors]
                 if args.resume_cont_training:
-                    mtl_steps = utils.get_num_acts(learnable_agent_actors, act_steps[epoch_restore-1])
+                    mtl_steps = utils.get_num_acts(
+                        learnable_agent_actors, act_steps[epoch_restore - 1]
+                    )
                 else:
                     mtl_steps = utils.get_num_acts(learnable_agent_actors, 0)
 
@@ -411,7 +416,7 @@ if __name__ == "__main__":
 
             num_update = batch_idx + epoch * args.epoch_len
             for task_idx, partner_agent in enumerate(partner_agents):
-                
+
                 if args.resume_cont_training:
                     if epoch == initial_epoch and batch_idx == 0:
                         tachometers[task_idx].start()
@@ -466,7 +471,7 @@ if __name__ == "__main__":
                         replay_buffer,
                         args.epoch_len * args.batchsize,
                         count_factor,
-                        act_steps[epoch_restore-1]
+                        act_steps[epoch_restore - 1],
                     )
 
         print("EPOCH: %d" % total_epochs)
@@ -531,7 +536,10 @@ if __name__ == "__main__":
                         args.shuffle_color,
                     )
 
-                    print("Creating ContActGroup for finetuning with partner "+str(eval_partner_ag_idx))
+                    print(
+                        "Creating ContActGroup for finetuning with partner "
+                        + str(eval_partner_ag_idx)
+                    )
                     eval_act_group = ContActGroup(
                         args.method,
                         args.act_device,
@@ -544,7 +552,7 @@ if __name__ == "__main__":
                         args.max_len,
                         args.num_player,
                         args.is_rand,
-                        eval_replay_buffer
+                        eval_replay_buffer,
                     )
                     eval_context, eval_threads = create_threads(
                         args.eval_num_thread,
@@ -634,7 +642,7 @@ if __name__ == "__main__":
                             eval_replay_buffer,
                             args.eval_epoch_len * args.batchsize,
                             count_factor,
-                            0
+                            0,
                         )
                         eval_stat.summary(eval_epoch)
                         if eval_done == True:
